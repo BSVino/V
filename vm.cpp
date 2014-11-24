@@ -1,9 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "v.h"
 #include "vm.h"
 
-int registers[32];
+static int registers[REGISTERS];
+
+static size_t stack_size = 1024 * 1024;
+static char* stack = NULL;
 
 #define GET_INSTRUCTION(data) (instruction_t)((data) >> (ARG1_BITS + ARG2_BITS))
 #define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
@@ -11,7 +15,11 @@ int registers[32];
 
 int vm(int* program, int* data)
 {
+	if (!stack)
+		stack = (char*)malloc(stack_size);
+
 	registers[R_IP] = (int)&program[0];
+	registers[R_SP] = (int)&stack[0];
 
 	while (true)
 	{
@@ -51,6 +59,20 @@ int vm(int* program, int* data)
 		case I_DUMP:
 			printf("Register %d = %d\n", arg1, registers[arg1]);
 			break;
+
+		case I_PUSH:
+			Unimplemented();
+			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
+			*(int*)registers[R_SP] = registers[arg1];
+			registers[R_SP] += sizeof(int);
+			break;
+
+		case I_POP:
+			Unimplemented();
+			Assert((size_t)registers[R_SP] > (size_t)stack);
+			registers[R_SP] -= sizeof(int);
+			registers[arg1] = *(int*)registers[R_SP];
+			break;
 		}
 
 		registers[R_IP] += sizeof(int);
@@ -58,5 +80,7 @@ int vm(int* program, int* data)
 
 dead:
 
-	return 0;
+	printf("Program exited with result: %d\n", registers[R_1]);
+
+	return 1;
 }

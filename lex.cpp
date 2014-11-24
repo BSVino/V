@@ -113,7 +113,7 @@ static int lex_expression(size_t expression_parent, size_t* expression_index)
 		ast.push_back(ast_node());
 		ast.back().value = st_add(ast_st, token_string, token_length);
 		ast.back().parent = expression_parent;
-		ast.back().type = NODE_VARIABLE;
+		ast.back().type = NODE_CONSTANT;
 		*expression_index = ast.size() - 1;
 		LEX_EAT(TOKEN_NUMBER);
 		return 1;

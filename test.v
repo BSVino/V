@@ -3,5 +3,5 @@
 main := (argc : int)
 {
 	test: int;
-	return 0;
+	return 1;
 }

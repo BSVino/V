@@ -9,10 +9,7 @@
 
 using namespace std;
 
-static std::vector<int>* program;
-static std::vector<int>* data;
-
-int compile(const char* filename, std::vector<int>& input_program, std::vector<int>& input_data)
+int compile(const char* filename, std::vector<int>& program, std::vector<int>& data)
 {
 	FILE* fp = fopen(filename, "rb");
 
@@ -31,15 +28,10 @@ int compile(const char* filename, std::vector<int>& input_program, std::vector<i
 
 	free(file_contents);
 
-	input_program.clear();
-	input_data.clear();
-	program = &input_program;
-	data = &input_data;
-
 	if (ast_main == ~0)
 		LEX_ERROR("No main procedure found.\n");
 
-	if (!emit_procedure(ast_main))
+	if (!emit_begin(ast_main, program, data))
 		return 0;
 
 	return 1;
