@@ -15,6 +15,7 @@ typedef enum {
 	I_JUMP,
 	I_MOVE,
 	I_LOAD,
+	I_MULTIPLY,
 	I_PRINT,
 } instruction_t;
 
@@ -52,10 +53,14 @@ int registers[32];
 #define CNS 1
 
 int program[] = {
-	INSTRUCTION(I_JUMP, CNS, 1, CNS, 0),
-	DATA(42),
+	INSTRUCTION(I_JUMP, CNS, 2, CNS, 0),
+	DATA(6),
+	DATA(7),
 	INSTRUCTION(I_MOVE, REG, R_2, CNS, 1),
-	INSTRUCTION(I_LOAD, REG, R_1, REG, R_2),
+	INSTRUCTION(I_MOVE, REG, R_3, CNS, 2),
+	INSTRUCTION(I_LOAD, REG, R_1, REG, R_2), // Load 6
+	INSTRUCTION(I_LOAD, REG, R_2, REG, R_3), // Load 7
+	INSTRUCTION(I_MULTIPLY, REG, R_1, REG, R_2),
 	INSTRUCTION(I_PRINT, REG, R_1, CNS, 0),
 	INSTRUCTION(I_DIE, 0, 0, 0, 0), // I die!
 };
@@ -78,7 +83,7 @@ int main(int argc, char** args)
 			return 0;
 
 		case I_JUMP:
-			registers[R_IP] += p1? arg1 : registers[arg1];
+			registers[R_IP] += p1 ? arg1 : registers[arg1];
 			break;
 
 		case I_MOVE:
@@ -88,6 +93,10 @@ int main(int argc, char** args)
 		case I_LOAD:
 			// TODO: Fault if arg2 invalid
 			registers[arg1] = p2 ? program[arg2] : program[registers[arg2]];
+			break;
+
+		case I_MULTIPLY:
+			registers[arg1] = registers[arg1] * (p2 ? arg2 : registers[arg2]);
 			break;
 
 		case I_PRINT:
