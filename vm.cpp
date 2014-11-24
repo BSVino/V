@@ -13,13 +13,14 @@
 #define ARG2_MASK 0xF
 
 typedef enum {
-	I_DIE = 0,
-	I_JUMP,
-	I_MOVE,
-	I_LOAD,
-	I_ADD,
-	I_MULTIPLY,
-	I_PRINT,
+	I_DIE = 0,  // End the program
+	I_JUMP,     // R_IP += arg1
+	I_MOVE,     // arg1 <- arg2
+	I_LOAD,     // arg1 <- *arg2
+	I_DATA,     // arg1 <- &data[arg2]
+	I_ADD,      // arg1 <- arg1 + arg2
+	I_MULTIPLY, // arg1 <- arg1 * arg2
+	I_DUMP,     // Dump register arg1
 } instruction_t;
 
 typedef enum {
@@ -50,16 +51,20 @@ int registers[32];
 #define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
 #define GET_ARG2(data) (register_t)((data) & ARG2_MASK)
 
-int program[] = {
-	INSTRUCTION(I_JUMP, 2, 0),
+int data[] = {
 	DATA(6),
 	DATA(7),
-	INSTRUCTION(I_MOVE, R_2, 1),
-	INSTRUCTION(I_MOVE, R_3, 2),
-	INSTRUCTION(I_LOAD, R_1, R_2), // Load 6
-	INSTRUCTION(I_LOAD, R_2, R_3), // Load 7
-	INSTRUCTION(I_MULTIPLY, R_1, R_2),
-	INSTRUCTION(I_PRINT, R_1, 0),
+};
+
+int program[] = {
+	INSTRUCTION(I_MOVE, R_2, 0),
+	INSTRUCTION(I_MOVE, R_3, 1),
+	INSTRUCTION(I_DATA, R_1, R_2),
+	INSTRUCTION(I_DATA, R_2, R_3),
+	INSTRUCTION(I_LOAD, R_3, R_1), // Load 6
+	INSTRUCTION(I_LOAD, R_1, R_2), // Load 7
+	INSTRUCTION(I_MULTIPLY, R_1, R_3),
+	INSTRUCTION(I_DUMP, R_1, 0),
 	INSTRUCTION(I_MOVE, R_2, -1),
 	INSTRUCTION(I_ADD, R_1, R_2),
 	INSTRUCTION(I_DIE, 0, 0), // I die!
@@ -72,11 +77,11 @@ int main(int argc, char** args)
 
 	//for (int i = 0; i < 10000000; i++)
 	{
-	registers[R_IP] = 0;
+	registers[R_IP] = (int)&program[0];
 
 	while (true)
 	{
-		int current_i = program[registers[R_IP]];
+		int current_i = *(int*)registers[R_IP];
 		instruction_t i = GET_INSTRUCTION(current_i);
 		register_t arg1 = GET_ARG1(current_i);
 		register_t arg2 = GET_ARG2(current_i);
@@ -86,7 +91,7 @@ int main(int argc, char** args)
 			goto dead;
 
 		case I_JUMP:
-			registers[R_IP] += arg1;
+			registers[R_IP] += arg1 * sizeof(int);
 			break;
 
 		case I_MOVE:
@@ -94,8 +99,11 @@ int main(int argc, char** args)
 			break;
 
 		case I_LOAD:
-			// TODO: Fault if arg2 invalid
-			registers[arg1] = program[registers[arg2]];
+			registers[arg1] = *(int*)registers[arg2];
+			break;
+
+		case I_DATA:
+			registers[arg1] = (int)&data[registers[arg2]];
 			break;
 
 		case I_ADD:
@@ -106,12 +114,12 @@ int main(int argc, char** args)
 			registers[arg1] = registers[arg1] * registers[arg2];
 			break;
 
-		case I_PRINT:
+		case I_DUMP:
 			printf("Register %d = %d\n", arg1, registers[arg1]);
 			break;
 		}
 
-		registers[R_IP]++;
+		registers[R_IP] += sizeof(int);
 	}
 
 dead:;
