@@ -12,6 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compile.cpp" />
+    <ClCompile Include="emit.cpp" />
+    <ClCompile Include="lex.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stringtable.cpp" />
     <ClCompile Include="vm.cpp" />

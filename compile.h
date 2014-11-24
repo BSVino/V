@@ -1,3 +1,3 @@
 #pragma once
 
-void compile(const char* filename, int** program, int** data);
+int compile(const char* filename, std::vector<int>& program, std::vector<int>& data);

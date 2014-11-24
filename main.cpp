@@ -1,11 +1,15 @@
 #include <stdio.h>
 
+#include <vector>
+
 #include "vm.h"
 #include "compile.h"
 
 #ifdef _WIN32
 #include <sys/timeb.h>
 #endif
+
+using namespace std;
 
 int data[] = {
 	DATA(6),
@@ -28,17 +32,17 @@ int program[] = {
 
 int main(int argc, char** args)
 {
-	int* program_c = NULL;
-	int* data_c = NULL;
+	vector<int> program_c;
+	vector<int> data_c;
 
-	compile(args[1], &program_c, &data_c);
+	compile(args[1], program_c, data_c);
 
 	struct timeb initial_time_millis, final_time_millis;
 	ftime(&initial_time_millis);
 
 	//for (int i = 0; i < 10000000; i++)
 	{
-		vm(program_c, data_c);
+		vm(program_c.data(), data_c.data());
 	}
 
 	ftime(&final_time_millis);
