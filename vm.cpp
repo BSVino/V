@@ -17,6 +17,7 @@ typedef enum {
 	I_JUMP,
 	I_MOVE,
 	I_LOAD,
+	I_ADD,
 	I_MULTIPLY,
 	I_PRINT,
 } instruction_t;
@@ -43,7 +44,7 @@ typedef enum {
 int registers[32];
 
 #define DATA(d) (d)
-#define INSTRUCTION(i, arg1, arg2) {(int)((i << (ARG1_BITS + ARG2_BITS)) | (arg1 << (ARG2_BITS)) | (arg2))}
+#define INSTRUCTION(i, arg1, arg2) {(int)((i << (ARG1_BITS + ARG2_BITS)) | ((arg1&ARG1_MASK) << (ARG2_BITS)) | (arg2&ARG2_MASK))}
 
 #define GET_INSTRUCTION(data) (instruction_t)((data) >> (ARG1_BITS + ARG2_BITS))
 #define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
@@ -59,6 +60,8 @@ int program[] = {
 	INSTRUCTION(I_LOAD, R_2, R_3), // Load 7
 	INSTRUCTION(I_MULTIPLY, R_1, R_2),
 	INSTRUCTION(I_PRINT, R_1, 0),
+	INSTRUCTION(I_MOVE, R_2, -1),
+	INSTRUCTION(I_ADD, R_1, R_2),
 	INSTRUCTION(I_DIE, 0, 0), // I die!
 };
 
@@ -87,12 +90,16 @@ int main(int argc, char** args)
 			break;
 
 		case I_MOVE:
-			registers[arg1] = arg2;
+			registers[arg1] = (char)(arg2 << 4) >> 4; // Abuse signed shifting to propogate negatives
 			break;
 
 		case I_LOAD:
 			// TODO: Fault if arg2 invalid
 			registers[arg1] = program[registers[arg2]];
+			break;
+
+		case I_ADD:
+			registers[arg1] = registers[arg1] + registers[arg2];
 			break;
 
 		case I_MULTIPLY:
