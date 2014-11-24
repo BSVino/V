@@ -1,8 +1,7 @@
 #include <stdio.h>
 
+#include "v.h"
 #include "vm.h"
-
-#define Assert(x) do {if (!(x)) __debugbreak(); } while (0)
 
 int registers[32];
 

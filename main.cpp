@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "vm.h"
+#include "compile.h"
 
 #ifdef _WIN32
 #include <sys/timeb.h>
@@ -27,12 +28,17 @@ int program[] = {
 
 int main(int argc, char** args)
 {
+	int* program_c = NULL;
+	int* data_c = NULL;
+
+	compile(args[1], &program_c, &data_c);
+
 	struct timeb initial_time_millis, final_time_millis;
 	ftime(&initial_time_millis);
 
 	//for (int i = 0; i < 10000000; i++)
 	{
-		vm(program, data);
+		vm(program_c, data_c);
 	}
 
 	ftime(&final_time_millis);
