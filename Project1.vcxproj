@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="vm.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
