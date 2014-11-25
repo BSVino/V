@@ -22,6 +22,7 @@
     <ClCompile Include="compile.cpp" />
     <ClCompile Include="emit.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="optimize.cpp" />
     <ClCompile Include="parse.cpp" />
     <ClCompile Include="stringtable.cpp" />
     <ClCompile Include="vm.cpp" />

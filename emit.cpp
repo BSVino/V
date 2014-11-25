@@ -1,8 +1,11 @@
+#include "emit.h"
+
 #include <map>
 
 #include "v.h"
 #include "parse.h"
 #include "vm.h"
+#include "optimize.h"
 
 using namespace std;
 
@@ -13,30 +16,11 @@ static map<const char*, size_t> v2r; // A map of variables to registers
 static vector<const char*>      r2v;   // A map of registers to variables
 static size_t next_const;
 
-#define CONST_REGISTER "__v_const"
-#define RETURN_REGISTER "__v_return"
-#define RETURN_REGISTER_INDEX 0
-#define JUMP_END_OF_PROCEDURE (size_t)(~0)
-
-typedef enum {
-	I3_JUMP,     // Jump to label #arg1.
-	I3_DATA,     // dest <- arg1 -- arg1 is a constant
-	I3_MOVE,     // dest <- arg1 -- arg1 is a register
-} instruction_3ac_t;
-
-struct instruction_3ac
-{
-	size_t r_dest;
-	size_t r_arg1;
-	size_t r_arg2;
-	instruction_3ac_t i;
-};
-
 static vector<instruction_3ac> procedure_3ac; // The procedure in three-address code
 
 static size_t emit_find_register(const char* variable)
 {
-	Assert(strncmp(variable, CONST_REGISTER, 9) != 0);
+	Assert(strncmp(variable, EMIT_CONST_REGISTER, 9) != 0);
 
 	auto& it = v2r.find(variable);
 	if (it == v2r.end())
@@ -53,7 +37,7 @@ static size_t emit_find_register(const char* variable)
 static size_t emit_auto_register()
 {
 	static char str[100];
-	sprintf(str, CONST_REGISTER "%d", next_const);
+	sprintf(str, EMIT_CONST_REGISTER "%d", next_const);
 
 	Assert(v2r.find(str) == v2r.end());
 
@@ -125,12 +109,12 @@ static int emit_statement(size_t statement_id)
 
 		procedure_3ac.push_back(instruction_3ac());
 		procedure_3ac.back().i = I3_MOVE;
-		procedure_3ac.back().r_dest = RETURN_REGISTER_INDEX;
+		procedure_3ac.back().r_dest = EMIT_RETURN_REGISTER_INDEX;
 		procedure_3ac.back().r_arg1 = expression_register;
 
 		procedure_3ac.push_back(instruction_3ac());
 		procedure_3ac.back().i = I3_JUMP;
-		procedure_3ac.back().r_arg1 = JUMP_END_OF_PROCEDURE;
+		procedure_3ac.back().r_arg1 = EMIT_JUMP_END_OF_PROCEDURE;
 		return 1;
 
 	default:
@@ -158,8 +142,8 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 
 		// This is okay because the emit code reserves the 0 register
 		// until just before a return, it's never used otherwise.
-		if (instruction.r_dest == RETURN_REGISTER_INDEX)
-			unique_register = RETURN_REGISTER_INDEX;
+		if (instruction.r_dest == EMIT_RETURN_REGISTER_INDEX)
+			unique_register = EMIT_RETURN_REGISTER_INDEX;
 
 		register_map[instruction.r_dest] = unique_register;
 
@@ -177,6 +161,21 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 	}
 }
 
+static void emit_convert_to_bytecode(vector<instruction_3ac>& input)
+{
+	for (size_t i = 0; i < input.size(); i++)
+	{
+		auto& in_i = input[i];
+
+		switch (in_i.i)
+		{
+		case I3_DATA:
+			data->push_back(DATA(in_i.r_arg1));
+			//program->push_back(INSTRUCTION(I_MOVE, data->size()-1, 0));
+		}
+	}
+}
+
 static int emit_procedure(size_t procedure_id)
 {
 	auto& procedure = ast[procedure_id];
@@ -187,25 +186,27 @@ static int emit_procedure(size_t procedure_id)
 	v2r.clear();
 	r2v.clear();
 	next_const = 0;
-	size_t return_register = emit_find_register(RETURN_REGISTER); // Reserve the first value for the return address
-	Assert(return_register == RETURN_REGISTER_INDEX);
+	size_t return_register = emit_find_register(EMIT_RETURN_REGISTER); // Reserve the first value for the return address
+	Assert(return_register == EMIT_RETURN_REGISTER_INDEX);
 
 	if (!emit_statement(procedure.next_statement))
 		return 0;
 
 	emit_convert_to_ssa(procedure_3ac);
 
+	optimize_copy_propagation(procedure_3ac);
+
 	return 1;
 }
 
-int emit_begin(size_t procedure_id, std::vector<int>& input_program, std::vector<int>& input_data)
+int emit_begin(size_t main_procedure, std::vector<int>& input_program, std::vector<int>& input_data)
 {
 	input_program.clear();
 	input_data.clear();
 	program = &input_program;
 	data = &input_data;
 
-	if (!emit_procedure(procedure_id))
+	if (!emit_procedure(main_procedure))
 		return 0;
 
 	program->push_back(INSTRUCTION(I_DIE, 0, 0));
