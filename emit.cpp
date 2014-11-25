@@ -141,6 +141,42 @@ static int emit_statement(size_t statement_id)
 	return emit_statement(statement.next_statement);
 }
 
+static void emit_convert_to_ssa(vector<instruction_3ac>& input)
+{
+	vector<size_t> register_map;
+	register_map.resize(input.size() + 1);
+
+#ifdef _DEBUG
+	memset(register_map.data(), ~0, sizeof(size_t) * register_map.size());
+#endif
+
+	for (size_t i = 0; i < input.size(); i++)
+	{
+		size_t unique_register = i + 1;
+
+		auto& instruction = input[i];
+
+		// This is okay because the emit code reserves the 0 register
+		// until just before a return, it's never used otherwise.
+		if (instruction.r_dest == RETURN_REGISTER_INDEX)
+			unique_register = RETURN_REGISTER_INDEX;
+
+		register_map[instruction.r_dest] = unique_register;
+
+		instruction.r_dest = unique_register;
+
+		if (instruction.i != I3_JUMP && instruction.i != I3_DATA)
+		{
+			// These instructions use registers as their arguments. Replace them with the new one.
+			Assert(register_map[instruction.r_arg1] != ~0);
+			instruction.r_arg1 = register_map[instruction.r_arg1];
+
+			if (instruction.i != I3_MOVE)
+				instruction.r_arg2 = register_map[instruction.r_arg2];
+		}
+	}
+}
+
 static int emit_procedure(size_t procedure_id)
 {
 	auto& procedure = ast[procedure_id];
@@ -156,6 +192,8 @@ static int emit_procedure(size_t procedure_id)
 
 	if (!emit_statement(procedure.next_statement))
 		return 0;
+
+	emit_convert_to_ssa(procedure_3ac);
 
 	return 1;
 }
