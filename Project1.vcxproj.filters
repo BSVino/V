@@ -27,10 +27,10 @@
     <ClCompile Include="stringtable.cpp">
       <Filter>Archivos de código fuente</Filter>
     </ClCompile>
-    <ClCompile Include="lex.cpp">
+    <ClCompile Include="emit.cpp">
       <Filter>Archivos de código fuente</Filter>
     </ClCompile>
-    <ClCompile Include="emit.cpp">
+    <ClCompile Include="parse.cpp">
       <Filter>Archivos de código fuente</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,5 +1,5 @@
 #include "v.h"
-#include "lex.h"
+#include "parse.h"
 #include "vm.h"
 
 static std::vector<int>* program;

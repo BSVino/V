@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "v.h"
-#include "lex.h"
+#include "parse.h"
 #include "emit.h"
 
 using namespace std;
@@ -177,7 +177,7 @@ int compile(const char* filename, std::vector<int>& program, std::vector<int>& d
 
 	fclose(fp);
 
-	if (!lex_begin(file_contents, file_size))
+	if (!parse_begin(file_contents, file_size))
 		return 0;
 
 	free(file_contents);

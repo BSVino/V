@@ -66,13 +66,13 @@ struct ast_node {
 	};
 };
 
-#define LEX_EAT(x) \
+#define PARSE_EAT(x) \
 do { \
-	int r = lex_eat(x); \
+	int r = parse_eat(x); \
 	if (!r) V_ERROR("ERROR: Expected " #x ".\n"); \
 } while (0) \
 
-int lex_begin(const char* file_contents, size_t file_size);
+int parse_begin(const char* file_contents, size_t file_size);
 
 extern std::vector<ast_node> ast;
 extern std::vector<char> ast_st;

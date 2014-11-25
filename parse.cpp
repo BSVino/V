@@ -1,4 +1,4 @@
-#include "lex.h"
+#include "parse.h"
 
 #include <algorithm>
 
@@ -83,7 +83,7 @@ static token_t lex_next()
 	return TOKEN_UNKNOWN;
 }
 
-static int lex_eat(token_t t)
+static int parse_eat(token_t t)
 {
 	if (token != t)
 		return 0;
@@ -92,12 +92,12 @@ static int lex_eat(token_t t)
 	return 1;
 }
 
-static int lex_peek(token_t t)
+static int parse_peek(token_t t)
 {
 	return token == t;
 }
 
-static token_t lex_peek2()
+static token_t parse_peek2()
 {
 	const char* p_stash     = p;
 	const char* p_end_stash = p_end;
@@ -117,45 +117,45 @@ static token_t lex_peek2()
 	return r;
 }
 
-static int lex_type()
+static int parse_type()
 {
-	if (!lex_peek(TOKEN_INT))
+	if (!parse_peek(TOKEN_INT))
 		return 0;
 
 	lex_next();
 	return 1;
 }
 
-static int lex_expression(size_t expression_parent, size_t* expression_index)
+static int parse_expression(size_t expression_parent, size_t* expression_index)
 {
-	if (lex_peek(TOKEN_NUMBER))
+	if (parse_peek(TOKEN_NUMBER))
 	{
 		ast.push_back(ast_node());
 		ast.back().value = st_add(ast_st, token_string, token_length);
 		ast.back().parent = expression_parent;
 		ast.back().type = NODE_CONSTANT;
 		*expression_index = ast.size() - 1;
-		LEX_EAT(TOKEN_NUMBER);
+		PARSE_EAT(TOKEN_NUMBER);
 		return 1;
 	}
 
-	if (lex_peek(TOKEN_IDENTIFIER))
+	if (parse_peek(TOKEN_IDENTIFIER))
 	{
 		ast.push_back(ast_node());
 		ast.back().value = st_add(ast_st, token_string, token_length);
 		ast.back().parent = expression_parent;
 		ast.back().type = NODE_VARIABLE;
 		*expression_index = ast.size() - 1;
-		LEX_EAT(TOKEN_IDENTIFIER);
+		PARSE_EAT(TOKEN_IDENTIFIER);
 		return 1;
 	}
 
 	return 0;
 }
 
-static int lex_declaration(size_t parent, size_t* index)
+static int parse_declaration(size_t parent, size_t* index)
 {
-	if (!lex_peek(TOKEN_IDENTIFIER))
+	if (!parse_peek(TOKEN_IDENTIFIER))
 		return 0;
 
 	*index = ast.size();
@@ -166,38 +166,38 @@ static int lex_declaration(size_t parent, size_t* index)
 	declaration.type = NODE_DECLARATION;
 	ast.push_back(declaration);
 
-	LEX_EAT(TOKEN_IDENTIFIER);
+	PARSE_EAT(TOKEN_IDENTIFIER);
 
-	if (lex_peek(TOKEN_DECLARE))
+	if (parse_peek(TOKEN_DECLARE))
 	{
-		LEX_EAT(TOKEN_DECLARE);
+		PARSE_EAT(TOKEN_DECLARE);
 		ast[*index].decl_data_type = token;
-		V_REQUIRE(lex_type(), "type");
+		V_REQUIRE(parse_type(), "type");
 
-		if (lex_peek(TOKEN_ASSIGN))
+		if (parse_peek(TOKEN_ASSIGN))
 		{
-			LEX_EAT(TOKEN_ASSIGN);
+			PARSE_EAT(TOKEN_ASSIGN);
 			size_t assign_expression;
-			if (lex_expression(*index, &assign_expression))
+			if (parse_expression(*index, &assign_expression))
 			{
 				ast[*index].next_expression = assign_expression;
 			}
 		}
 	}
-	else if (lex_peek(TOKEN_DECLARE_ASSIGN))
+	else if (parse_peek(TOKEN_DECLARE_ASSIGN))
 		Unimplemented();
-	else if (lex_peek(TOKEN_ASSIGN))
+	else if (parse_peek(TOKEN_ASSIGN))
 		Unimplemented();
 
 	return 1;
 }
 
-static int lex_return_statement(size_t parent, size_t* index)
+static int parse_return_statement(size_t parent, size_t* index)
 {
-	if (!lex_peek(TOKEN_RETURN))
+	if (!parse_peek(TOKEN_RETURN))
 		return 0;
 
-	LEX_EAT(TOKEN_RETURN);
+	PARSE_EAT(TOKEN_RETURN);
 
 	*index = ast.size();
 	ast_node statement;
@@ -207,43 +207,43 @@ static int lex_return_statement(size_t parent, size_t* index)
 
 	size_t expression_id;
 
-	int r = lex_expression(*index, &expression_id);
+	int r = parse_expression(*index, &expression_id);
 
 	ast[*index].next_expression = expression_id;
 
 	return r;
 }
 
-static int lex_statement(size_t parent, size_t* index)
+static int parse_statement(size_t parent, size_t* index)
 {
-	if (lex_peek(TOKEN_IDENTIFIER))
+	if (parse_peek(TOKEN_IDENTIFIER))
 	{
-		token_t peek2 = lex_peek2();
+		token_t peek2 = parse_peek2();
 
 		if (peek2 == TOKEN_ASSIGN || peek2 == TOKEN_DECLARE_ASSIGN || peek2 == TOKEN_DECLARE)
 		{
-			if (lex_declaration(parent, index))
+			if (parse_declaration(parent, index))
 			{
-				LEX_EAT(TOKEN_SEMICOLON);
+				PARSE_EAT(TOKEN_SEMICOLON);
 				return 1;
 			}
 			else
 				V_ERROR("Invalid declaration");
 		}
 		else
-			return lex_expression(parent, index);
+			return parse_expression(parent, index);
 	}
 
-	if (lex_return_statement(parent, index))
+	if (parse_return_statement(parent, index))
 	{
-		LEX_EAT(TOKEN_SEMICOLON);
+		PARSE_EAT(TOKEN_SEMICOLON);
 		return 1;
 	}
 
 	return 0;
 }
 
-static int lex_procedure()
+static int parse_procedure()
 {
 	size_t procedure_id = ast.size();
 
@@ -259,45 +259,45 @@ static int lex_procedure()
 	if (strcmp(st_get(ast_st, ast.back().value), "main") == 0)
 		ast_main = procedure_id;
 
-	LEX_EAT(TOKEN_IDENTIFIER);
+	PARSE_EAT(TOKEN_IDENTIFIER);
 
-	LEX_EAT(TOKEN_DECLARE_ASSIGN);
+	PARSE_EAT(TOKEN_DECLARE_ASSIGN);
 
-	LEX_EAT(TOKEN_OPEN_PAREN);
+	PARSE_EAT(TOKEN_OPEN_PAREN);
 	{
 		size_t declaration_id;
-		if (lex_declaration(procedure_id, &declaration_id))
+		if (parse_declaration(procedure_id, &declaration_id))
 		{
 			ast[procedure_id].proc_first_parameter = declaration_id;
 			size_t last_parameter = declaration_id;
 
-			while (lex_peek(TOKEN_COMMA))
+			while (parse_peek(TOKEN_COMMA))
 			{
-				LEX_EAT(TOKEN_COMMA);
-				V_REQUIRE(lex_declaration(procedure_id, &declaration_id), "declaration");
+				PARSE_EAT(TOKEN_COMMA);
+				V_REQUIRE(parse_declaration(procedure_id, &declaration_id), "declaration");
 				ast[last_parameter].next_statement = declaration_id;
 				last_parameter = declaration_id;
 			}
 		}
 	}
-	LEX_EAT(TOKEN_CLOSE_PAREN);
+	PARSE_EAT(TOKEN_CLOSE_PAREN);
 
-	LEX_EAT(TOKEN_OPEN_CURLY);
+	PARSE_EAT(TOKEN_OPEN_CURLY);
 	{
 		size_t last_statement = procedure_id;
 		size_t statement_id;
-		while (lex_statement(procedure_id, &statement_id))
+		while (parse_statement(procedure_id, &statement_id))
 		{
 			ast[last_statement].next_statement = statement_id;
 			last_statement = statement_id;
 		}
 	}
-	LEX_EAT(TOKEN_CLOSE_CURLY);
+	PARSE_EAT(TOKEN_CLOSE_CURLY);
 
 	return 1;
 }
 
-int lex_begin(const char* file_contents, size_t file_size)
+int parse_begin(const char* file_contents, size_t file_size)
 {
 	ast.clear();
 	ast_st.clear();
@@ -307,8 +307,7 @@ int lex_begin(const char* file_contents, size_t file_size)
 	p_end = file_contents + file_size;
 
 	lex_next(); // Prime the pump
-	if (!lex_procedure())
-		V_ERROR("Expected a procedure.\n");
+	V_REQUIRE(parse_procedure(), "procedure");
 
 	return 1;
 }
