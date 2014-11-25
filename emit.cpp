@@ -1,50 +1,69 @@
+#include <map>
+
 #include "v.h"
 #include "parse.h"
 #include "vm.h"
 
-static std::vector<int>* program;
-static std::vector<int>* data;
+using namespace std;
 
-static int registers_used[REGISTERS] = { 0 };
+static vector<int>* program;
+static vector<int>* data;
 
-static register_t emit_find_unused_register()
+static map<const char*, size_t> v2r; // A map of variables to registers
+static vector<const char*>      r2v;   // A map of registers to variables
+static size_t next_const;
+
+#define CONST_REGISTER "__v_const"
+#define RETURN_REGISTER "__v_return"
+#define RETURN_REGISTER_INDEX 0
+#define JUMP_END_OF_PROCEDURE (size_t)(~0)
+
+typedef enum {
+	I3_JUMP,     // Jump to label #arg1.
+	I3_DATA,     // dest <- arg1 -- arg1 is a constant
+	I3_MOVE,     // dest <- arg1 -- arg1 is a register
+} instruction_3ac_t;
+
+struct instruction_3ac
 {
-	for (int i = R_1; i < REGISTERS; i++)
+	size_t r_dest;
+	size_t r_arg1;
+	size_t r_arg2;
+	instruction_3ac_t i;
+};
+
+static vector<instruction_3ac> procedure_3ac; // The procedure in three-address code
+
+static size_t emit_find_register(const char* variable)
+{
+	Assert(strncmp(variable, CONST_REGISTER, 9) != 0);
+
+	auto& it = v2r.find(variable);
+	if (it == v2r.end())
 	{
-		if (!registers_used[i])
-			return (register_t)i;
+		size_t index = r2v.size();
+		v2r[variable] = index;
+		r2v.push_back(variable);
+		return index;
 	}
-
-	return R_NONE;
+	else
+		return it->second;
 }
 
-static register_t emit_reserve_register()
+static size_t emit_auto_register()
 {
-	register_t r = emit_find_unused_register();
+	static char str[100];
+	sprintf(str, CONST_REGISTER "%d", next_const);
 
-	if (r == R_NONE)
-		// Push it
-		Unimplemented();
+	Assert(v2r.find(str) == v2r.end());
 
-	registers_used[r] = 1;
-	return r;
+	size_t index = r2v.size();
+	v2r[str] = index;
+	r2v.push_back(str);
+	return index;
 }
 
-static void emit_reserve_register(register_t r)
-{
-	if (registers_used[r])
-		// Push it
-		Unimplemented();
-
-	registers_used[r] = 1;
-}
-
-static void emit_free_register(register_t r)
-{
-	registers_used[r] = 0;
-}
-
-static int emit_expression(size_t expression_id, register_t result)
+static int emit_expression(size_t expression_id, size_t* result_register)
 {
 	if (expression_id == ~0)
 		return 1;
@@ -54,17 +73,15 @@ static int emit_expression(size_t expression_id, register_t result)
 	switch (expression.type)
 	{
 	case NODE_CONSTANT:
-	{
-		register_t r = emit_reserve_register();
-		data->push_back(DATA(atoi(st_get(ast_st, expression.value))));
-		program->push_back(INSTRUCTION(I_MOVE, result, data->size() - 1));
-		program->push_back(INSTRUCTION(I_DATA, r, result));
-		program->push_back(INSTRUCTION(I_LOAD, result, r));
-		emit_free_register(r);
+		*result_register = emit_auto_register();
+		procedure_3ac.push_back(instruction_3ac());
+		procedure_3ac.back().i = I3_DATA;
+		procedure_3ac.back().r_dest = *result_register;
+		procedure_3ac.back().r_arg1 = atoi(st_get(ast_st, expression.value));
 		break;
-	}
 
 	case NODE_VARIABLE:
+		*result_register = emit_find_register(st_get(ast_st, expression.value));
 		break;
 
 	default:
@@ -72,7 +89,7 @@ static int emit_expression(size_t expression_id, register_t result)
 		V_ERROR("Unexpected expression\n");
 	}
 
-	return emit_expression(expression.next_statement, result);
+	return emit_expression(expression.next_statement, result_register);
 }
 
 static int emit_statement(size_t statement_id)
@@ -86,12 +103,35 @@ static int emit_statement(size_t statement_id)
 	{
 	case NODE_DECLARATION:
 		if (statement.next_expression)
-			emit_expression(statement.next_expression, R_1);
+		{
+			size_t expression_register;
+
+			if (!emit_expression(statement.next_expression, &expression_register))
+				return 0;
+
+			size_t target = emit_find_register(st_get(ast_st, statement.value));
+
+			procedure_3ac.push_back(instruction_3ac());
+			procedure_3ac.back().i = I3_MOVE;
+			procedure_3ac.back().r_dest = target;
+			procedure_3ac.back().r_arg1 = expression_register;
+		}
 		break;
 
 	case NODE_RETURN:
-		emit_expression(statement.next_expression, R_1);
-		break;
+		size_t expression_register;
+		if (!emit_expression(statement.next_expression, &expression_register))
+			return 0;
+
+		procedure_3ac.push_back(instruction_3ac());
+		procedure_3ac.back().i = I3_MOVE;
+		procedure_3ac.back().r_dest = RETURN_REGISTER_INDEX;
+		procedure_3ac.back().r_arg1 = expression_register;
+
+		procedure_3ac.push_back(instruction_3ac());
+		procedure_3ac.back().i = I3_JUMP;
+		procedure_3ac.back().r_arg1 = JUMP_END_OF_PROCEDURE;
+		return 1;
 
 	default:
 		Unimplemented();
@@ -107,7 +147,17 @@ static int emit_procedure(size_t procedure_id)
 
 	Assert(procedure.type == NODE_PROCEDURE);
 
-	return emit_statement(procedure.next_statement);
+	procedure_3ac.clear();
+	v2r.clear();
+	r2v.clear();
+	next_const = 0;
+	size_t return_register = emit_find_register(RETURN_REGISTER); // Reserve the first value for the return address
+	Assert(return_register == RETURN_REGISTER_INDEX);
+
+	if (!emit_statement(procedure.next_statement))
+		return 0;
+
+	return 1;
 }
 
 int emit_begin(size_t procedure_id, std::vector<int>& input_program, std::vector<int>& input_data)
