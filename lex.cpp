@@ -65,6 +65,8 @@ static token_t lex_next()
 		return p += 2, token = TOKEN_DECLARE_ASSIGN;
 	else if (*p == ':')
 		return p++, token = TOKEN_DECLARE;
+	else if (*p == '=')
+		return p++, token = TOKEN_ASSIGN;
 	else if (*p == '(')
 		return p++, token = TOKEN_OPEN_PAREN;
 	else if (*p == ')')
@@ -92,10 +94,27 @@ static int lex_eat(token_t t)
 
 static int lex_peek(token_t t)
 {
-	if (token != t)
-		return 0;
+	return token == t;
+}
 
-	return 1;
+static token_t lex_peek2()
+{
+	const char* p_stash     = p;
+	const char* p_end_stash = p_end;
+
+	token_t     token_stash        = token;
+	const char* token_string_stash = token_string;
+	size_t      token_length_stash = token_length;
+
+	token_t r = lex_next();
+
+	p = p_stash;
+	p_end = p_end_stash;
+	token = token_stash;
+	token_string = token_string_stash;
+	token_length = token_length_stash;
+
+	return r;
 }
 
 static int lex_type()
@@ -134,52 +153,88 @@ static int lex_expression(size_t expression_parent, size_t* expression_index)
 	return 0;
 }
 
-static int lex_declaration(ast_node* declaration)
+static int lex_declaration(size_t parent, size_t* index)
 {
 	if (!lex_peek(TOKEN_IDENTIFIER))
 		return 0;
 
-	declaration->value = st_add(ast_st, token_string, token_length);
-	declaration->type = NODE_DECLARATION;
+	*index = ast.size();
+
+	ast_node declaration;
+	declaration.parent = parent;
+	declaration.value = st_add(ast_st, token_string, token_length);
+	declaration.type = NODE_DECLARATION;
+	ast.push_back(declaration);
+
 	LEX_EAT(TOKEN_IDENTIFIER);
-	LEX_EAT(TOKEN_DECLARE);
-	declaration->decl_data_type = token;
-	V_REQUIRE(lex_type(), "type");
+
+	if (lex_peek(TOKEN_DECLARE))
+	{
+		LEX_EAT(TOKEN_DECLARE);
+		ast[*index].decl_data_type = token;
+		V_REQUIRE(lex_type(), "type");
+
+		if (lex_peek(TOKEN_ASSIGN))
+		{
+			LEX_EAT(TOKEN_ASSIGN);
+			size_t assign_expression;
+			if (lex_expression(*index, &assign_expression))
+			{
+				ast[*index].next_expression = assign_expression;
+			}
+		}
+	}
+	else if (lex_peek(TOKEN_DECLARE_ASSIGN))
+		Unimplemented();
+	else if (lex_peek(TOKEN_ASSIGN))
+		Unimplemented();
 
 	return 1;
 }
 
-static int lex_return_statement(ast_node* statement, size_t* statement_id)
+static int lex_return_statement(size_t parent, size_t* index)
 {
 	if (!lex_peek(TOKEN_RETURN))
 		return 0;
 
 	LEX_EAT(TOKEN_RETURN);
 
-	ast.push_back(*statement);
-	*statement_id = ast.size() - 1;
-	ast[*statement_id].type = NODE_RETURN;
+	*index = ast.size();
+	ast_node statement;
+	statement.parent = parent;
+	statement.type = NODE_RETURN;
+	ast.push_back(statement);
 
 	size_t expression_id;
 
-	int r = lex_expression(ast.size() - 1, &expression_id);
+	int r = lex_expression(*index, &expression_id);
 
-	ast[*statement_id].next_expression = expression_id;
+	ast[*index].next_expression = expression_id;
 
 	return r;
 }
 
-static int lex_statement(ast_node* statement, size_t* statement_id)
+static int lex_statement(size_t parent, size_t* index)
 {
-	if (lex_declaration(statement))
+	if (lex_peek(TOKEN_IDENTIFIER))
 	{
-		ast.push_back(*statement);
-		*statement_id = ast.size() - 1;
-		LEX_EAT(TOKEN_SEMICOLON);
-		return 1;
+		token_t peek2 = lex_peek2();
+
+		if (peek2 == TOKEN_ASSIGN || peek2 == TOKEN_DECLARE_ASSIGN || peek2 == TOKEN_DECLARE)
+		{
+			if (lex_declaration(parent, index))
+			{
+				LEX_EAT(TOKEN_SEMICOLON);
+				return 1;
+			}
+			else
+				V_ERROR("Invalid declaration");
+		}
+		else
+			return lex_expression(parent, index);
 	}
 
-	if (lex_return_statement(statement, statement_id))
+	if (lex_return_statement(parent, index))
 	{
 		LEX_EAT(TOKEN_SEMICOLON);
 		return 1;
@@ -198,8 +253,7 @@ static int lex_procedure()
 	ast.back().type = NODE_PROCEDURE;
 	ast.back().value = st_add(ast_st, token_string, token_length);
 
-	ast.back().proc_first_parameter = ast.size();
-	ast.back().proc_num_parameters = 0;
+	ast.back().proc_first_parameter = ~0;
 	ast.back().next_statement = ~0;
 
 	if (strcmp(st_get(ast_st, ast.back().value), "main") == 0)
@@ -211,19 +265,18 @@ static int lex_procedure()
 
 	LEX_EAT(TOKEN_OPEN_PAREN);
 	{
-		ast_node declaration;
-		declaration.parent = procedure_id;
-		if (lex_declaration(&declaration))
+		size_t declaration_id;
+		if (lex_declaration(procedure_id, &declaration_id))
 		{
-			ast.push_back(declaration);
-			ast[procedure_id].proc_num_parameters++;
+			ast[procedure_id].proc_first_parameter = declaration_id;
+			size_t last_parameter = declaration_id;
+
 			while (lex_peek(TOKEN_COMMA))
 			{
 				LEX_EAT(TOKEN_COMMA);
-				V_REQUIRE(lex_declaration(&declaration), "declaration");
-				ast.push_back(declaration);
-				ast[procedure_id].proc_num_parameters++;
-				declaration.clear();
+				V_REQUIRE(lex_declaration(procedure_id, &declaration_id), "declaration");
+				ast[last_parameter].next_statement = declaration_id;
+				last_parameter = declaration_id;
 			}
 		}
 	}
@@ -231,16 +284,12 @@ static int lex_procedure()
 
 	LEX_EAT(TOKEN_OPEN_CURLY);
 	{
-		ast_node statement;
 		size_t last_statement = procedure_id;
 		size_t statement_id;
-		statement.parent = procedure_id;
-		while (lex_statement(&statement, &statement_id))
+		while (lex_statement(procedure_id, &statement_id))
 		{
 			ast[last_statement].next_statement = statement_id;
 			last_statement = statement_id;
-			statement.clear();
-			statement.parent = procedure_id;
 		}
 	}
 	LEX_EAT(TOKEN_CLOSE_CURLY);

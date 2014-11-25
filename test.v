@@ -2,6 +2,6 @@
 
 main := (argc : int)
 {
-	test: int;
+	test: int = 2;
 	return test;
 }

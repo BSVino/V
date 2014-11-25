@@ -83,15 +83,17 @@ int check_procedure(size_t procedure_id)
 	auto& procedure_node = ast[procedure_id];
 
 	// Add the parameters to the scope
-	for (size_t i = 0; i < procedure_node.proc_num_parameters; i++)
+	size_t parameter_id = procedure_node.proc_first_parameter;
+	while (parameter_id != ~0)
 	{
-		size_t parameter_id = procedure_node.proc_first_parameter + i;
 		auto& parameter = ast[parameter_id];
 
 		Assert(parameter.parent == procedure_id);
 
 		if (parameter.type == NODE_DECLARATION)
 			V_REQUIRE(scope_push(parameter_id), "unique identifier name");
+
+		parameter_id = parameter.decl_next_parameter;
 	}
 
 	size_t statement_id = procedure_node.next_statement;

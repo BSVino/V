@@ -12,6 +12,7 @@ typedef enum {
 	TOKEN_NUMBER,           // e.g. 123, 2.4, 0
 	TOKEN_DECLARE_ASSIGN,   // :=
 	TOKEN_DECLARE,          // :
+	TOKEN_ASSIGN,           // =
 	TOKEN_OPEN_PAREN,       // (
 	TOKEN_CLOSE_PAREN,      // )
 	TOKEN_OPEN_CURLY,       // {
@@ -44,6 +45,7 @@ struct ast_node {
 		value = ~0;
 		next_statement = ~0;
 		next_expression = ~0;
+		decl_next_parameter = ~0;
 	}
 
 	size_t      parent;
@@ -55,11 +57,11 @@ struct ast_node {
 	union {
 		struct { // Procedures
 			size_t proc_first_parameter;
-			size_t proc_num_parameters;
 			size_t proc_first_statement;
 		};
 		struct { // Declarations
 			token_t decl_data_type;
+			size_t  decl_next_parameter;
 		};
 	};
 };
