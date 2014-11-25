@@ -85,10 +85,11 @@ static int emit_statement(size_t statement_id)
 	switch (statement.type)
 	{
 	case NODE_DECLARATION:
+		if (statement.next_expression)
+			emit_expression(statement.next_expression, R_1);
 		break;
 
 	case NODE_RETURN:
-		emit_reserve_register(R_1);
 		emit_expression(statement.next_expression, R_1);
 		break;
 

@@ -57,7 +57,6 @@ struct ast_node {
 	union {
 		struct { // Procedures
 			size_t proc_first_parameter;
-			size_t proc_first_statement;
 		};
 		struct { // Declarations
 			token_t decl_data_type;

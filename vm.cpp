@@ -4,7 +4,7 @@
 #include "v.h"
 #include "vm.h"
 
-static int registers[REGISTERS];
+static size_t registers[REGISTERS];
 
 static size_t stack_size = 1024 * 1024;
 static char* stack = NULL;
@@ -18,8 +18,8 @@ int vm(int* program, int* data)
 	if (!stack)
 		stack = (char*)malloc(stack_size);
 
-	registers[R_IP] = (int)&program[0];
-	registers[R_SP] = (int)&stack[0];
+	registers[R_IP] = (size_t)&program[0];
+	registers[R_SP] = (size_t)&stack[0];
 
 	while (true)
 	{
@@ -45,7 +45,7 @@ int vm(int* program, int* data)
 			break;
 
 		case I_DATA:
-			registers[arg1] = (int)&data[registers[arg2]];
+			registers[arg1] = (size_t)&data[registers[arg2]];
 			break;
 
 		case I_ADD:
@@ -63,7 +63,7 @@ int vm(int* program, int* data)
 		case I_PUSH:
 			Unimplemented();
 			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
-			*(int*)registers[R_SP] = registers[arg1];
+			*(size_t*)registers[R_SP] = registers[arg1];
 			registers[R_SP] += sizeof(int);
 			break;
 
@@ -71,7 +71,11 @@ int vm(int* program, int* data)
 			Unimplemented();
 			Assert((size_t)registers[R_SP] > (size_t)stack);
 			registers[R_SP] -= sizeof(int);
-			registers[arg1] = *(int*)registers[R_SP];
+			registers[arg1] = *(size_t*)registers[R_SP];
+			break;
+
+		default:
+			Unimplemented();
 			break;
 		}
 

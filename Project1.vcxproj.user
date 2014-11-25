@@ -5,4 +5,9 @@
     <LocalDebuggerWorkingDirectory>C:\git\testvm</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommandArguments>test.v</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\git\testvm</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
 </Project>

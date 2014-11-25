@@ -35,7 +35,7 @@ int scope_push(size_t identifier)
 
 size_t scope_find(const char* id_name)
 {
-	for (int i = scope_identifiers.size()-1; i > 0; i--)
+	for (int i = (int)scope_identifiers.size()-1; i > 0; i--)
 	{
 		if (strcmp(st_get(ast_st, ast[scope_identifiers[i]].value), id_name) == 0)
 			return i;
@@ -172,7 +172,7 @@ int compile(const char* filename, std::vector<int>& program, std::vector<int>& d
 
 	char* file_contents = (char*)malloc(file_size+1);
 
-	int read = fread(file_contents, 1, file_size, fp);
+	size_t read = fread(file_contents, 1, file_size, fp);
 	file_contents[file_size] = 0;
 
 	fclose(fp);

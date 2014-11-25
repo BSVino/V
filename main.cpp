@@ -43,7 +43,7 @@ int main(int argc, char** args)
 
 	//for (int i = 0; i < 10000000; i++)
 	{
-		vm(program_c.data(), data_c.data());
+		vm(program, data);
 	}
 
 	ftime(&final_time_millis);
