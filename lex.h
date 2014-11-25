@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "v.h"
 #include "stringtable.h"
 
 typedef enum {
@@ -63,26 +64,16 @@ struct ast_node {
 	};
 };
 
-#define LEX_ERROR(msg) do { printf(msg); return 0; } while (0);
-
 #define LEX_EAT(x) \
 do { \
 	int r = lex_eat(x); \
-	if (!r) LEX_ERROR("ERROR: Expected " #x ".\n"); \
-} while (0) \
-
-#define LEX_REQUIRE(x, error) \
-do { \
-	int r = (x); \
-	if (!r) { \
-		printf("ERROR: Required a " error ".\n"); \
-		return r; \
-		} \
+	if (!r) V_ERROR("ERROR: Expected " #x ".\n"); \
 } while (0) \
 
 int lex_begin(const char* file_contents, size_t file_size);
 
 extern std::vector<ast_node> ast;
 extern std::vector<char> ast_st;
+extern std::vector<size_t> ast_globals;
 extern size_t ast_main;
 

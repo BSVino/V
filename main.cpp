@@ -35,7 +35,8 @@ int main(int argc, char** args)
 	vector<int> program_c;
 	vector<int> data_c;
 
-	compile(args[1], program_c, data_c);
+	if (!compile(args[1], program_c, data_c))
+		return -1;
 
 	struct timeb initial_time_millis, final_time_millis;
 	ftime(&initial_time_millis);

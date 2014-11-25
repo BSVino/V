@@ -16,6 +16,7 @@ static size_t      token_length;
 vector<ast_node> ast;
 vector<char> ast_st;
 size_t ast_main = ~0;
+vector<size_t> ast_globals;
 
 static int lex_strcmp(const char* s1, const char* s2, size_t n1, size_t n2)
 {
@@ -143,7 +144,7 @@ static int lex_declaration(ast_node* declaration)
 	LEX_EAT(TOKEN_IDENTIFIER);
 	LEX_EAT(TOKEN_DECLARE);
 	declaration->decl_data_type = token;
-	LEX_REQUIRE(lex_type(), "type");
+	V_REQUIRE(lex_type(), "type");
 
 	return 1;
 }
@@ -191,6 +192,8 @@ static int lex_procedure()
 {
 	size_t procedure_id = ast.size();
 
+	ast_globals.push_back(procedure_id);
+
 	ast.push_back(ast_node());
 	ast.back().type = NODE_PROCEDURE;
 	ast.back().value = st_add(ast_st, token_string, token_length);
@@ -217,7 +220,7 @@ static int lex_procedure()
 			while (lex_peek(TOKEN_COMMA))
 			{
 				LEX_EAT(TOKEN_COMMA);
-				LEX_REQUIRE(lex_declaration(&declaration), "declaration");
+				V_REQUIRE(lex_declaration(&declaration), "declaration");
 				ast.push_back(declaration);
 				ast[procedure_id].proc_num_parameters++;
 				declaration.clear();
@@ -256,7 +259,7 @@ int lex_begin(const char* file_contents, size_t file_size)
 
 	lex_next(); // Prime the pump
 	if (!lex_procedure())
-		LEX_ERROR("Expected a procedure.\n");
+		V_ERROR("Expected a procedure.\n");
 
 	return 1;
 }

@@ -69,7 +69,7 @@ static int emit_expression(size_t expression_id, register_t result)
 
 	default:
 		Unimplemented();
-		LEX_ERROR("Unexpected expression\n");
+		V_ERROR("Unexpected expression\n");
 	}
 
 	return emit_expression(expression.next_statement, result);
@@ -94,7 +94,7 @@ static int emit_statement(size_t statement_id)
 
 	default:
 		Unimplemented();
-		LEX_ERROR("Unexpected statement\n");
+		V_ERROR("Unexpected statement\n");
 	}
 
 	return emit_statement(statement.next_statement);
