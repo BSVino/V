@@ -1,6 +1,6 @@
 #include "emit.h"
 
-#include <map>
+#include "vhash.h"
 
 #include "v.h"
 #include "parse.h"
@@ -12,8 +12,8 @@ using namespace std;
 static vector<int>* program;
 static vector<int>* data;
 
-static map<const char*, size_t> v2r; // A map of variables to registers
-static vector<const char*>      r2v;   // A map of registers to variables
+static vhash<unsigned short> v2r; // A map of variables to registers
+static vector<const char*>   r2v; // A map of registers to variables
 static size_t next_const;
 
 static vector<instruction_3ac> procedure_3ac; // The procedure in three-address code
@@ -22,16 +22,18 @@ static size_t emit_find_register(const char* variable)
 {
 	Assert(strncmp(variable, EMIT_CONST_REGISTER, 9) != 0);
 
-	auto& it = v2r.find(variable);
-	if (it == v2r.end())
+	vhash<unsigned short>::hash_t hash;
+	bool found;
+	size_t it = v2r.find(variable, &hash, &found);
+	if (found)
+		return *v2r.get(it);
+	else
 	{
 		size_t index = r2v.size();
-		v2r[variable] = index;
+		v2r.set(variable, it, hash, index);
 		r2v.push_back(variable);
 		return index;
 	}
-	else
-		return it->second;
 }
 
 static size_t emit_auto_register()
@@ -39,10 +41,10 @@ static size_t emit_auto_register()
 	static char str[100];
 	sprintf(str, EMIT_CONST_REGISTER "%d", next_const);
 
-	Assert(v2r.find(str) == v2r.end());
+	Assert(!v2r.entry_exists(str));
 
 	size_t index = r2v.size();
-	v2r[str] = index;
+	v2r.set(str, index);
 	r2v.push_back(str);
 	return index;
 }
