@@ -10,21 +10,35 @@ using namespace std;
 
 void optimize_copy_propagation(vector<instruction_3ac>& input)
 {
-	vector<size_t> register_constants;
+	vector<size_t> register_constants; // Tracks whether a register holds a constant value
 	register_constants.resize(input.size() + 1);
 
-#ifdef _DEBUG
-	memset(register_constants.data(), ~0, sizeof(size_t) * register_constants.size());
-#endif
+	memset(register_constants.data(), BOTTOM, sizeof(size_t) * register_constants.size());
+
+	vector<size_t> instruction_reads; // Maps an instruction to the registers that it reads
+	instruction_reads.resize(2 * (input.size() + 1));
+
+	memset(instruction_reads.data(), ~0, sizeof(size_t) * instruction_reads.size());
+
+	vector<size_t> register_instructions; // Maps dest registers to instructions that write to that register
+	register_instructions.resize(input.size() + 1);
+
+	vector<size_t> instructions_used; // Stack containing used instructions
 
 	for (size_t i = 0; i < input.size(); i++)
 	{
 		auto& instruction = input[i];
 
+		input[i].flags = (instruction_3ac::flags_e)(input[i].flags | instruction_3ac::I3AC_UNUSED);
+
 		if (instruction.i == I3_DATA)
+		{
+			register_instructions[instruction.r_dest] = i;
 			register_constants[instruction.r_dest] = instruction.r_arg1;
+		}
 		else if (instruction.i == I3_MOVE)
 		{
+			register_instructions[instruction.r_dest] = i;
 			if (register_constants[instruction.r_arg1] != TOP && register_constants[instruction.r_arg1] != BOTTOM)
 			{
 				instruction.i = I3_DATA;
@@ -32,14 +46,41 @@ void optimize_copy_propagation(vector<instruction_3ac>& input)
 				register_constants[instruction.r_dest] = instruction.r_arg1;
 			}
 			else
+			{
 				register_constants[instruction.r_dest] = TOP;
+				instruction_reads[i * 2] = instruction.r_arg1;
+			}
 		}
 		else if (instruction.i == I3_JUMP)
 		{
-			if (instruction.r_arg1 != EMIT_JUMP_END_OF_PROCEDURE)
+			if (instruction.r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
+			{
+				instruction_reads[i * 2] = EMIT_RETURN_REGISTER_INDEX;
+				instructions_used.push_back(i);
+			}
+			else
 				Unimplemented();
 		}
 		else
 			Unimplemented();
+	}
+
+	while (instructions_used.size())
+	{
+		size_t current_i = instructions_used.back();
+		instructions_used.pop_back();
+
+		if (!(input[current_i].flags & instruction_3ac::I3AC_UNUSED))
+			continue;
+
+		input[current_i].flags = (instruction_3ac::flags_e)(input[current_i].flags & ~instruction_3ac::I3AC_UNUSED);
+
+		size_t reg1 = instruction_reads[current_i * 2];
+		if (reg1 != ~0)
+			instructions_used.push_back(register_instructions[reg1]);
+
+		size_t reg2 = instruction_reads[current_i * 2+1];
+		if (reg2 != ~0)
+			instructions_used.push_back(register_instructions[reg2]);
 	}
 }

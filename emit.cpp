@@ -64,6 +64,7 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 		procedure_3ac.back().i = I3_DATA;
 		procedure_3ac.back().r_dest = *result_register;
 		procedure_3ac.back().r_arg1 = atoi(st_get(ast_st, expression.value));
+		procedure_3ac.back().flags = instruction_3ac::I3AC_NONE;
 		break;
 
 	case NODE_VARIABLE:

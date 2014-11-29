@@ -16,6 +16,11 @@ struct instruction_3ac
 	size_t r_arg1;
 	size_t r_arg2;
 	instruction_3ac_t i;
+	typedef enum {
+		I3AC_NONE = 0,
+		I3AC_UNUSED = (1 << 0),
+	} flags_e;
+	flags_e flags;
 };
 
 #define EMIT_CONST_REGISTER "__v_const"
