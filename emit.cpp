@@ -199,6 +199,44 @@ static int emit_procedure(size_t procedure_id)
 
 	optimize_copy_propagation(procedure_3ac);
 
+	program->clear();
+	for (size_t i = 0; i < procedure_3ac.size(); i++)
+	{
+		auto* instruction = &procedure_3ac[i];
+
+		if (instruction->flags & instruction_3ac::I3AC_UNUSED)
+			continue;
+
+		switch (instruction->i)
+		{
+		case I3_DATA:
+			if (instruction->r_arg1 < (1 << ARG1_BITS))
+				program->push_back(INSTRUCTION(I_MOVE, R_1 + instruction->r_dest, instruction->r_arg1));
+			else
+			{
+				data->push_back(DATA(instruction->r_arg1));
+				program->push_back(INSTRUCTION(I_MOVE, R_1 + instruction->r_dest, data->size() - 1));
+				program->push_back(INSTRUCTION(I_DATALOAD, R_1 + instruction->r_dest, R_1 + instruction->r_dest));
+			}
+			break;
+
+		case I3_MOVE:
+			program->push_back(INSTRUCTION(I_MOVE, R_1 + instruction->r_dest, R_1 + instruction->r_arg1));
+			break;
+
+		case I3_JUMP:
+			if (instruction->r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
+				program->push_back(INSTRUCTION(I_DIE, 0, 0));
+			else
+				Unimplemented();
+			break;
+
+		default:
+			Unimplemented();
+			break;
+		}
+	}
+
 	return 1;
 }
 

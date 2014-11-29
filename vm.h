@@ -17,6 +17,7 @@ typedef enum {
 	I_MOVE,     // arg1 <- arg2 -- arg2 is a constant.
 	I_LOAD,     // arg1 <- *arg2
 	I_DATA,     // arg1 <- &data[arg2]
+	I_DATALOAD, // arg1 <- data[arg2]
 	I_ADD,      // arg1 <- arg1 + arg2
 	I_MULTIPLY, // arg1 <- arg1 * arg2
 	I_DUMP,     // Dump register arg1

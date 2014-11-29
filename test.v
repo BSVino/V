@@ -2,6 +2,9 @@
 
 main := (argc : int)
 {
-	test: int = 2;
-	return test;
+	x: int = 42;
+	y: int = x;
+	z: int = y;
+	w: int = z;
+	return z;
 }

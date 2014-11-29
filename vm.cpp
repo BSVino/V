@@ -48,6 +48,10 @@ int vm(int* program, int* data)
 			registers[arg1] = (size_t)&data[registers[arg2]];
 			break;
 
+		case I_DATALOAD:
+			registers[arg1] = data[registers[arg2]];
+			break;
+
 		case I_ADD:
 			registers[arg1] = registers[arg1] + registers[arg2];
 			break;
