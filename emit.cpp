@@ -1,5 +1,7 @@
 #include "emit.h"
 
+#include <algorithm> // for min/max
+
 #include "vhash.h"
 
 #include "v.h"
@@ -179,6 +181,55 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>& input)
 	}
 }
 
+// timeline maps ssa registers (variables) to their first write and last reads.
+// variable_registers maps ssa registers (variables) to their destination registers for the VM.
+static void emit_allocate_registers(size_t num_target_registers, vector<size_t>* variable_registers, vector<register_timeline>* timeline)
+{
+	variable_registers->clear();
+	variable_registers->resize(num_target_registers);
+
+	memset(variable_registers->data(), ~0, sizeof(size_t)*variable_registers->size());
+
+	// Horrible n^2 suboptimal algorithm but should be good enough for my purposes.
+	for (size_t i = 0; i < timeline->size(); i++)
+	{
+		auto& variable = (*timeline)[i];
+
+		if (variable.write_instruction == ~0 || variable.last_read == ~0)
+			continue;
+
+		size_t possible_registers = ~0;
+
+		for (size_t j = 0; j < timeline->size(); j++)
+		{
+			auto& other = (*timeline)[j];
+
+			if (other.write_instruction == ~0 || other.last_read == ~0)
+				continue;
+
+			if ((*variable_registers)[j] == ~0)
+				continue;
+
+			Unimplemented();
+			// If 'other' has already been allocated a register, check if we share a live time with it
+			size_t last_write = std::max(variable.write_instruction, other.write_instruction);
+			size_t first_read = std::min(variable.last_read, other.last_read);
+
+			if (last_write <= first_read)
+				possible_registers &= ~j;
+		}
+
+		for (size_t j = 0; j < sizeof(size_t)*8; j++)
+		{
+			if (possible_registers & (1 << j))
+			{
+				(*variable_registers)[i] = j;
+				break;
+			}
+		}
+	}
+}
+
 static int emit_procedure(size_t procedure_id)
 {
 	auto& procedure = ast[procedure_id];
@@ -197,7 +248,11 @@ static int emit_procedure(size_t procedure_id)
 
 	emit_convert_to_ssa(procedure_3ac);
 
-	optimize_copy_propagation(procedure_3ac);
+	vector<register_timeline> timeline;
+	optimize_copy_propagation(&procedure_3ac, &timeline);
+
+	vector<size_t> variable_registers;
+	emit_allocate_registers((size_t)(R_12-R_1+1), &variable_registers, &timeline);
 
 	program->clear();
 	for (size_t i = 0; i < procedure_3ac.size(); i++)
@@ -211,17 +266,23 @@ static int emit_procedure(size_t procedure_id)
 		{
 		case I3_DATA:
 			if (instruction->r_arg1 < (1 << ARG1_BITS))
-				program->push_back(INSTRUCTION(I_MOVE, R_1 + instruction->r_dest, instruction->r_arg1));
+			{
+				Assert(variable_registers[instruction->r_dest] != ~0);
+				program->push_back(INSTRUCTION(I_MOVE, R_1 + variable_registers[instruction->r_dest], instruction->r_arg1));
+			}
 			else
 			{
+				Assert(variable_registers[instruction->r_dest] != ~0);
 				data->push_back(DATA(instruction->r_arg1));
-				program->push_back(INSTRUCTION(I_MOVE, R_1 + instruction->r_dest, data->size() - 1));
-				program->push_back(INSTRUCTION(I_DATALOAD, R_1 + instruction->r_dest, R_1 + instruction->r_dest));
+				program->push_back(INSTRUCTION(I_MOVE, R_1 + variable_registers[instruction->r_dest], data->size() - 1));
+				program->push_back(INSTRUCTION(I_DATALOAD, R_1 + variable_registers[instruction->r_dest], R_1 + variable_registers[instruction->r_dest]));
 			}
 			break;
 
 		case I3_MOVE:
-			program->push_back(INSTRUCTION(I_MOVE, R_1 + instruction->r_dest, R_1 + instruction->r_arg1));
+			Assert(variable_registers[instruction->r_dest] != ~0);
+			Assert(variable_registers[instruction->r_arg1] != ~0);
+			program->push_back(INSTRUCTION(I_MOVE, R_1 + variable_registers[instruction->r_dest], R_1 + variable_registers[instruction->r_arg1]));
 			break;
 
 		case I3_JUMP:
