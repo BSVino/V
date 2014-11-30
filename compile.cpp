@@ -35,7 +35,7 @@ int scope_push(size_t identifier)
 
 size_t scope_find(const char* id_name)
 {
-	for (int i = (int)scope_identifiers.size()-1; i > 0; i--)
+	for (int i = (int)scope_identifiers.size()-1; i >= 0; i--)
 	{
 		if (strcmp(st_get(ast_st, ast[scope_identifiers[i]].value), id_name) == 0)
 			return i;
@@ -72,6 +72,10 @@ int check_expression(size_t expression_id)
 	case NODE_DIFFERENCE:
 	case NODE_PRODUCT:
 	case NODE_QUOTIENT:
+		break;
+
+	case NODE_PROCEDURE_CALL:
+		V_REQUIRE(scope_find(st_get(ast_st, expression_node.value)) != ~0, "known procedure");
 		break;
 
 	default:

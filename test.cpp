@@ -37,6 +37,7 @@ void do_tests()
 	test("main := ", false);
 	test("main := ()", false);
 	test("main := {}", false);
+	test("main := (argc: int) { return 42; }", true, 42);
 	test("main := () { return 42; }", true, 42);
 	test("main := () { return 5 + 7; }", true, 12);
 	test("main := () { x: int = 5 + 7; return x; }", true, 12);

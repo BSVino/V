@@ -152,7 +152,7 @@ static node_type_t parse_operator_node(token_t t)
 	return (node_type_t)(t - TOKEN_PLUS + NODE_SUM);
 }
 
-// expression_terminals <- number | id
+// expression_terminals <- number | id [ "(" ")" ]
 // It is the caller's responsibility to set the parent of the node returned by expression_index.
 static int parse_expression_terminals(size_t* expression_index)
 {
@@ -168,11 +168,28 @@ static int parse_expression_terminals(size_t* expression_index)
 
 	if (parse_peek(TOKEN_IDENTIFIER))
 	{
-		ast.push_back(ast_node());
-		ast.back().value = st_add(ast_st, token_string, token_length);
-		ast.back().type = NODE_VARIABLE;
-		*expression_index = ast.size() - 1;
+		st_string name = st_add(ast_st, token_string, token_length);
+
 		PARSE_EAT(TOKEN_IDENTIFIER);
+
+		if (parse_peek(TOKEN_OPEN_PAREN))
+		{
+			ast.push_back(ast_node());
+			ast.back().value = name;
+			ast.back().type = NODE_PROCEDURE_CALL;
+			*expression_index = ast.size() - 1;
+
+			PARSE_EAT(TOKEN_OPEN_PAREN);
+
+			PARSE_EAT(TOKEN_CLOSE_PAREN);
+		}
+		else
+		{
+			ast.push_back(ast_node());
+			ast.back().value = name;
+			ast.back().type = NODE_VARIABLE;
+			*expression_index = ast.size() - 1;
+		}
 		return 1;
 	}
 

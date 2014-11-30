@@ -36,6 +36,7 @@ typedef enum {
 	NODE_RETURN,
 	NODE_VARIABLE,
 	NODE_CONSTANT,
+	NODE_PROCEDURE_CALL,
 
 	// These nodes should be updated in parse_operator_node if they are modified.
 	NODE_SUM,

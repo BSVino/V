@@ -1,9 +1,9 @@
-
-
-main := (argc : int)
+test := ()
 {
-	x: int = 1 * 2 + 3 * 4;
-	y: int = 1 + 2 - 3;
-	z: int = 1 - 2 + 3;
-	return x + y + z;
+	return 42;
+}
+
+main := ()
+{
+	return test();
 }
