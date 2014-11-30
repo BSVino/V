@@ -11,25 +11,6 @@
 
 using namespace std;
 
-int data[] = {
-	DATA(6),
-	DATA(7),
-};
-
-int program[] = {
-	INSTRUCTION(I_MOVE, R_2, 0),
-	INSTRUCTION(I_MOVE, R_3, 1),
-	INSTRUCTION(I_DATA, R_1, R_2),
-	INSTRUCTION(I_DATA, R_2, R_3),
-	INSTRUCTION(I_LOAD, R_3, R_1), // Load 6
-	INSTRUCTION(I_LOAD, R_1, R_2), // Load 7
-	INSTRUCTION(I_MULTIPLY, R_1, R_3),
-	INSTRUCTION(I_DUMP, R_1, 0),
-	INSTRUCTION(I_MOVE, R_2, -1),
-	INSTRUCTION(I_ADD, R_1, R_2),
-	INSTRUCTION(I_DIE, 0, 0), // I die!
-};
-
 #include <map>
 #include "vhash.h"
 
@@ -42,13 +23,13 @@ int main(int argc, char** args)
 	return 0;
 #endif
 
-	vector<int> program_c;
-	vector<int> data_c;
+	vector<int> program;
+	vector<int> data;
 
-	if (!compile(args[1], program_c, data_c))
+	if (!compile(args[1], program, data))
 		return -1;
 
-	vm(program_c.data(), data_c.data());
+	vm(program.data(), data.data());
 
 	return 0;
 }
