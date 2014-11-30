@@ -17,7 +17,8 @@ vector<int> data;
 
 void test(const char* string, bool should_compile, int desired_result = 0)
 {
-	int result = compile(string, strlen(string), program, data);
+	size_t length = strlen(string);
+	int result = compile(string, length, program, data);
 
 	if (!should_compile)
 	{
@@ -51,6 +52,7 @@ void do_tests()
 	// * Variables not used before they are declared
 	// * Assignment to constants is a compiler error
 	// * Something that screws up the register order and SSA has to fix
+	// * Main exists, main is a procedure, main has either no or the standard parameters
 
 	test_vhash();
 }
