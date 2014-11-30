@@ -65,6 +65,25 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 			else
 				Unimplemented();
 		}
+		else if (instruction.i == I3_ADD)
+		{
+			(*timeline)[instruction.r_dest].write_instruction = i;
+			if (register_constants[instruction.r_arg1] != TOP && register_constants[instruction.r_arg1] != BOTTOM
+				&& register_constants[instruction.r_arg2] != TOP && register_constants[instruction.r_arg2] != BOTTOM)
+			{
+				instruction.i = I3_DATA;
+				instruction.r_arg1 = register_constants[instruction.r_arg1] + register_constants[instruction.r_arg2];
+				register_constants[instruction.r_dest] = instruction.r_arg1;
+			}
+			else
+			{
+				register_constants[instruction.r_dest] = TOP;
+				instruction_reads[i * 2] = instruction.r_arg1;
+				instruction_reads[i * 2 + 1] = instruction.r_arg2;
+				(*timeline)[instruction.r_arg1].last_read = i;
+				(*timeline)[instruction.r_arg2].last_read = i;
+			}
+		}
 		else
 			Unimplemented();
 	}

@@ -21,6 +21,9 @@ typedef enum {
 	TOKEN_SEMICOLON,        // ;
 	TOKEN_INT,              // int type keyword
 	TOKEN_RETURN,           // return keyword
+
+	// Operator tokens should be updated in parse_precendence_array and parse_operator_node if they are modified.
+	TOKEN_PLUS,             // +
 } token_t;
 
 typedef enum {
@@ -30,6 +33,7 @@ typedef enum {
 	NODE_RETURN,
 	NODE_VARIABLE,
 	NODE_CONSTANT,
+	NODE_SUM,
 } node_type_t;
 
 struct ast_node {
@@ -61,6 +65,10 @@ struct ast_node {
 		struct { // Declarations
 			token_t decl_data_type;
 			size_t  decl_next_parameter;
+		};
+		struct { // Operations
+			size_t oper_left;
+			size_t oper_right;
 		};
 	};
 };

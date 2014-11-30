@@ -41,7 +41,7 @@ static size_t emit_find_register(const char* variable)
 static size_t emit_auto_register()
 {
 	static char str[100];
-	sprintf(str, EMIT_CONST_REGISTER "%d", next_const);
+	sprintf(str, EMIT_CONST_REGISTER "%d", next_const++);
 
 	Assert(!v2r.entry_exists(str));
 
@@ -72,6 +72,22 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 	case NODE_VARIABLE:
 		*result_register = emit_find_register(st_get(ast_st, expression.value));
 		break;
+
+	case NODE_SUM:
+	{
+		size_t left, right;
+		emit_expression(expression.oper_left, &left);
+		emit_expression(expression.oper_right, &right);
+
+		*result_register = emit_auto_register();
+		procedure_3ac.push_back(instruction_3ac());
+		procedure_3ac.back().i = I3_ADD;
+		procedure_3ac.back().r_dest = *result_register;
+		procedure_3ac.back().r_arg1 = left;
+		procedure_3ac.back().r_arg2 = right;
+		procedure_3ac.back().flags = instruction_3ac::I3AC_NONE;
+		break;
+	}
 
 	default:
 		Unimplemented();

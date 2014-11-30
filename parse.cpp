@@ -79,6 +79,8 @@ static token_t lex_next()
 		return p++, token = TOKEN_COMMA;
 	else if (*p == ';')
 		return p++, token = TOKEN_SEMICOLON;
+	else if (*p == '+')
+		return p++, token = TOKEN_PLUS;
 
 	return TOKEN_UNKNOWN;
 }
@@ -126,13 +128,27 @@ static int parse_type()
 	return 1;
 }
 
-static int parse_expression(size_t expression_parent, size_t* expression_index)
+static char parse_precendence_array[] = {
+	1, // TOKEN_PLUS
+};
+
+static int parse_precendence(token_t t)
+{
+	return parse_precendence_array[t - TOKEN_PLUS];
+}
+
+static node_type_t parse_operator_node(token_t t)
+{
+	return (node_type_t)(t - TOKEN_PLUS + NODE_SUM);
+}
+
+// It is the caller's responsibility to set the parent of the node returned by expression_index.
+static int parse_expression_terminals(size_t* expression_index)
 {
 	if (parse_peek(TOKEN_NUMBER))
 	{
 		ast.push_back(ast_node());
 		ast.back().value = st_add(ast_st, token_string, token_length);
-		ast.back().parent = expression_parent;
 		ast.back().type = NODE_CONSTANT;
 		*expression_index = ast.size() - 1;
 		PARSE_EAT(TOKEN_NUMBER);
@@ -143,7 +159,6 @@ static int parse_expression(size_t expression_parent, size_t* expression_index)
 	{
 		ast.push_back(ast_node());
 		ast.back().value = st_add(ast_st, token_string, token_length);
-		ast.back().parent = expression_parent;
 		ast.back().type = NODE_VARIABLE;
 		*expression_index = ast.size() - 1;
 		PARSE_EAT(TOKEN_IDENTIFIER);
@@ -151,6 +166,74 @@ static int parse_expression(size_t expression_parent, size_t* expression_index)
 	}
 
 	return 0;
+}
+
+extern int parse_expression(size_t expression_parent, size_t* expression_index);
+
+// It is the caller's responsibility to set the parent of the node returned by expression_index.
+static int parse_expression_operand(size_t* expression_index)
+{
+	/*if (parse_peek(TOKEN_MINUS))
+	{
+		PARSE_EAT(TOKEN_MINUS);
+		return parse_expression_precedence(UNARY_MINUS_PRECEDENCE, 0, 0);
+	}*/
+
+	if (parse_peek(TOKEN_OPEN_PAREN))
+	{
+		Unimplemented();
+		V_REQUIRE(parse_expression(0, expression_index), "expression");
+		PARSE_EAT(TOKEN_CLOSE_PAREN);
+		return 1;
+	}
+
+	V_REQUIRE(parse_expression_terminals(expression_index), "terminal");
+
+	return 1;
+}
+
+static int parse_peek_operator()
+{
+	return parse_peek(TOKEN_PLUS);
+}
+
+static int parse_expression_precedence(int precedence, size_t expression_parent, size_t* expression_index)
+{
+	size_t left_operand_index;
+	V_REQUIRE(parse_expression_operand(&left_operand_index), "expression");
+
+	// If the operand is not part of an operation, the parent should be expression_parent.
+	// Otherwise it will get overridden in the loop below.
+	ast[left_operand_index].parent = expression_parent;
+	*expression_index = left_operand_index;
+
+	while (parse_peek_operator() && parse_precendence(token) >= precedence)
+	{
+		token_t op = token;
+		PARSE_EAT(op);
+
+		size_t operation_index = ast.size();
+		ast_node operation;
+		operation.parent = expression_parent;
+		operation.type = parse_operator_node(op);
+		operation.oper_left = left_operand_index;
+		ast.push_back(operation);
+
+		ast[left_operand_index].parent = operation_index;
+		*expression_index = operation_index;
+
+		size_t right_operand_index;
+		V_REQUIRE(parse_expression_precedence(parse_precendence(op) + 1, operation_index, &right_operand_index), "expression");
+
+		ast[operation_index].oper_right = right_operand_index;
+	}
+
+	return 1;
+}
+
+static int parse_expression(size_t expression_parent, size_t* expression_index)
+{
+	return parse_expression_precedence(0, expression_parent, expression_index);
 }
 
 static int parse_declaration(size_t parent, size_t* index)
