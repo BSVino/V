@@ -74,6 +74,7 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 		break;
 
 	case NODE_SUM:
+	case NODE_PRODUCT:
 	{
 		size_t left, right;
 		emit_expression(expression.oper_left, &left);
@@ -81,11 +82,18 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 
 		*result_register = emit_auto_register();
 		procedure_3ac.push_back(instruction_3ac());
-		procedure_3ac.back().i = I3_ADD;
 		procedure_3ac.back().r_dest = *result_register;
 		procedure_3ac.back().r_arg1 = left;
 		procedure_3ac.back().r_arg2 = right;
 		procedure_3ac.back().flags = instruction_3ac::I3AC_NONE;
+
+		// Deja vu
+		switch (expression.type)
+		{
+		case NODE_SUM:     procedure_3ac.back().i = I3_ADD; break;
+		case NODE_PRODUCT: procedure_3ac.back().i = I3_MULTIPLY; break;
+		default: Unimplemented();
+		}
 		break;
 	}
 

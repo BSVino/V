@@ -81,6 +81,8 @@ static token_t lex_next()
 		return p++, token = TOKEN_SEMICOLON;
 	else if (*p == '+')
 		return p++, token = TOKEN_PLUS;
+	else if (*p == '*')
+		return p++, token = TOKEN_TIMES;
 
 	return TOKEN_UNKNOWN;
 }
@@ -130,6 +132,7 @@ static int parse_type()
 
 static char parse_precendence_array[] = {
 	1, // TOKEN_PLUS
+	2, // TOKEN_TIMES
 };
 
 static int parse_precendence(token_t t)
@@ -194,7 +197,7 @@ static int parse_expression_operand(size_t* expression_index)
 
 static int parse_peek_operator()
 {
-	return parse_peek(TOKEN_PLUS);
+	return parse_peek(TOKEN_PLUS) || parse_peek(TOKEN_TIMES);
 }
 
 static int parse_expression_precedence(int precedence, size_t expression_parent, size_t* expression_index)

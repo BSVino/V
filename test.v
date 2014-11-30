@@ -2,9 +2,6 @@
 
 main := (argc : int)
 {
-	x: int = 42;
-	y: int = x + 1;
-	z: int = 5 + y;
-	w: int = z + y;
-	return w;
+	x: int = 1 + 2 * 3;
+	return x;
 }

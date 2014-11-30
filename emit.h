@@ -9,6 +9,7 @@ typedef enum {
 	I3_DATA,     // dest <- arg1 -- arg1 is a constant
 	I3_MOVE,     // dest <- arg1 -- arg1 is a register
 	I3_ADD,      // dest <- arg1 + arg2, registers
+	I3_MULTIPLY, // dest <- arg1 * arg2, registers
 } instruction_3ac_t;
 
 struct instruction_3ac
