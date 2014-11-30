@@ -19,7 +19,9 @@ typedef enum {
 	I_DATA,     // arg1 <- &data[arg2]
 	I_DATALOAD, // arg1 <- data[arg2]
 	I_ADD,      // arg1 <- arg1 + arg2
+	I_SUBTRACT, // arg1 <- arg1 - arg2
 	I_MULTIPLY, // arg1 <- arg1 * arg2
+	I_DIVIDE,   // arg1 <- arg1 / arg2
 	I_DUMP,     // Dump register arg1
 	I_PUSH,     // *R_SP = arg1, R_SP++
 	I_POP,      // R_SP--, arg1 = *R_SP

@@ -74,7 +74,9 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 		break;
 
 	case NODE_SUM:
+	case NODE_DIFFERENCE:
 	case NODE_PRODUCT:
+	case NODE_QUOTIENT:
 	{
 		size_t left, right;
 		emit_expression(expression.oper_left, &left);
@@ -90,8 +92,10 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 		// Deja vu
 		switch (expression.type)
 		{
-		case NODE_SUM:     procedure_3ac.back().i = I3_ADD; break;
-		case NODE_PRODUCT: procedure_3ac.back().i = I3_MULTIPLY; break;
+		case NODE_SUM:        procedure_3ac.back().i = I3_ADD; break;
+		case NODE_DIFFERENCE: procedure_3ac.back().i = I3_SUBTRACT; break;
+		case NODE_PRODUCT:    procedure_3ac.back().i = I3_MULTIPLY; break;
+		case NODE_QUOTIENT:   procedure_3ac.back().i = I3_DIVIDE; break;
 		default: Unimplemented();
 		}
 		break;
@@ -190,17 +194,49 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 	}
 }
 
-static void emit_convert_to_bytecode(vector<instruction_3ac>& input)
+static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size_t>* variable_registers)
 {
-	for (size_t i = 0; i < input.size(); i++)
+	program->clear();
+	for (size_t i = 0; i < procedure_3ac.size(); i++)
 	{
-		auto& in_i = input[i];
+		auto* instruction = &procedure_3ac[i];
 
-		switch (in_i.i)
+		if (instruction->flags & instruction_3ac::I3AC_UNUSED)
+			continue;
+
+		switch (instruction->i)
 		{
 		case I3_DATA:
-			data->push_back(DATA(in_i.r_arg1));
-			//program->push_back(INSTRUCTION(I_MOVE, data->size()-1, 0));
+			if (instruction->r_arg1 < (1 << ARG1_BITS))
+			{
+				Assert((*variable_registers)[instruction->r_dest] != ~0);
+				program->push_back(INSTRUCTION(I_MOVE, R_1 + (*variable_registers)[instruction->r_dest], instruction->r_arg1));
+			}
+			else
+			{
+				Assert((*variable_registers)[instruction->r_dest] != ~0);
+				data->push_back(DATA(instruction->r_arg1));
+				program->push_back(INSTRUCTION(I_MOVE, R_1 + (*variable_registers)[instruction->r_dest], data->size() - 1));
+				program->push_back(INSTRUCTION(I_DATALOAD, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_dest]));
+			}
+			break;
+
+		case I3_MOVE:
+			Assert((*variable_registers)[instruction->r_dest] != ~0);
+			Assert((*variable_registers)[instruction->r_arg1] != ~0);
+			program->push_back(INSTRUCTION(I_MOVE, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg1]));
+			break;
+
+		case I3_JUMP:
+			if (instruction->r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
+				program->push_back(INSTRUCTION(I_DIE, 0, 0));
+			else
+				Unimplemented();
+			break;
+
+		default:
+			Unimplemented();
+			break;
 		}
 	}
 }
@@ -278,49 +314,7 @@ static int emit_procedure(size_t procedure_id)
 	vector<size_t> variable_registers;
 	emit_allocate_registers((size_t)(R_12-R_1+1), &variable_registers, &timeline);
 
-	program->clear();
-	for (size_t i = 0; i < procedure_3ac.size(); i++)
-	{
-		auto* instruction = &procedure_3ac[i];
-
-		if (instruction->flags & instruction_3ac::I3AC_UNUSED)
-			continue;
-
-		switch (instruction->i)
-		{
-		case I3_DATA:
-			if (instruction->r_arg1 < (1 << ARG1_BITS))
-			{
-				Assert(variable_registers[instruction->r_dest] != ~0);
-				program->push_back(INSTRUCTION(I_MOVE, R_1 + variable_registers[instruction->r_dest], instruction->r_arg1));
-			}
-			else
-			{
-				Assert(variable_registers[instruction->r_dest] != ~0);
-				data->push_back(DATA(instruction->r_arg1));
-				program->push_back(INSTRUCTION(I_MOVE, R_1 + variable_registers[instruction->r_dest], data->size() - 1));
-				program->push_back(INSTRUCTION(I_DATALOAD, R_1 + variable_registers[instruction->r_dest], R_1 + variable_registers[instruction->r_dest]));
-			}
-			break;
-
-		case I3_MOVE:
-			Assert(variable_registers[instruction->r_dest] != ~0);
-			Assert(variable_registers[instruction->r_arg1] != ~0);
-			program->push_back(INSTRUCTION(I_MOVE, R_1 + variable_registers[instruction->r_dest], R_1 + variable_registers[instruction->r_arg1]));
-			break;
-
-		case I3_JUMP:
-			if (instruction->r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
-				program->push_back(INSTRUCTION(I_DIE, 0, 0));
-			else
-				Unimplemented();
-			break;
-
-		default:
-			Unimplemented();
-			break;
-		}
-	}
+	emit_convert_to_bytecode(&procedure_3ac, &variable_registers);
 
 	return 1;
 }

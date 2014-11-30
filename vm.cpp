@@ -56,8 +56,16 @@ int vm(int* program, int* data)
 			registers[arg1] = registers[arg1] + registers[arg2];
 			break;
 
+		case I_SUBTRACT:
+			registers[arg1] = registers[arg1] - registers[arg2];
+			break;
+
 		case I_MULTIPLY:
 			registers[arg1] = registers[arg1] * registers[arg2];
+			break;
+
+		case I_DIVIDE:
+			registers[arg1] = registers[arg1] / registers[arg2];
 			break;
 
 		case I_DUMP:

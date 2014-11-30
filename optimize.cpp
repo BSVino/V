@@ -5,17 +5,25 @@
 #include "v.h"
 #include "emit.h"
 
-#define TOP (~0 - 1) // Register is not a constant
-#define BOTTOM ~0    // Register is uninitialized
+struct register_info
+{
+	enum {
+		CONSTANT =      0,
+		NOT_CONSTANT =  1, // AKA top
+		UNINITIALIZED = 2, // AKA bottom
+	} state;
+	size_t value;
+};
 
 using namespace std;
 
 void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_timeline>* timeline)
 {
-	vector<size_t> register_constants; // Tracks whether a register holds a constant value
+	vector<register_info> register_constants; // Tracks register constant values
 	register_constants.resize(input->size() + 1);
 
-	memset(register_constants.data(), BOTTOM, sizeof(size_t) * register_constants.size());
+	for (size_t i = 0; i < register_constants.size(); i++)
+		register_constants[i].state = register_info::UNINITIALIZED;
 
 	vector<size_t> instruction_reads; // Maps an instruction to the registers that it reads
 	instruction_reads.resize(2 * (input->size() + 1));
@@ -33,29 +41,9 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 
 		(*input)[i].flags = (instruction_3ac::flags_e)((*input)[i].flags | instruction_3ac::I3AC_UNUSED);
 
-		if (instruction.i == I3_DATA)
+		switch (instruction.i)
 		{
-			(*timeline)[instruction.r_dest].write_instruction = i;
-			register_constants[instruction.r_dest] = instruction.r_arg1;
-		}
-		else if (instruction.i == I3_MOVE)
-		{
-			(*timeline)[instruction.r_dest].write_instruction = i;
-			if (register_constants[instruction.r_arg1] != TOP && register_constants[instruction.r_arg1] != BOTTOM)
-			{
-				instruction.i = I3_DATA;
-				instruction.r_arg1 = register_constants[instruction.r_arg1];
-				register_constants[instruction.r_dest] = instruction.r_arg1;
-			}
-			else
-			{
-				register_constants[instruction.r_dest] = TOP;
-				instruction_reads[i * 2] = instruction.r_arg1;
-				(*timeline)[instruction.r_arg1].last_read = i;
-			}
-		}
-		else if (instruction.i == I3_JUMP)
-		{
+		case I3_JUMP:
 			if (instruction.r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
 			{
 				instruction_reads[i * 2] = EMIT_RETURN_REGISTER_INDEX;
@@ -64,41 +52,67 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 			}
 			else
 				Unimplemented();
-		}
-		else if (instruction.i == I3_ADD || instruction.i == I3_MULTIPLY)
-		{
+			break;
+
+		case I3_DATA:
 			(*timeline)[instruction.r_dest].write_instruction = i;
-			if (register_constants[instruction.r_arg1] != TOP && register_constants[instruction.r_arg1] != BOTTOM
-				&& register_constants[instruction.r_arg2] != TOP && register_constants[instruction.r_arg2] != BOTTOM)
+			register_constants[instruction.r_dest].value = instruction.r_arg1;
+			register_constants[instruction.r_dest].state = register_info::CONSTANT;
+			break;
+
+		case I3_MOVE:
+			(*timeline)[instruction.r_dest].write_instruction = i;
+			if (!(register_constants[instruction.r_arg1].state & register_info::NOT_CONSTANT) && !(register_constants[instruction.r_arg1].state & register_info::UNINITIALIZED))
+			{
+				instruction.i = I3_DATA;
+				instruction.r_arg1 = register_constants[instruction.r_arg1].value;
+				register_constants[instruction.r_dest].value = instruction.r_arg1;
+				register_constants[instruction.r_dest].state = register_info::CONSTANT;
+			}
+			else
+			{
+				register_constants[instruction.r_dest].state = register_info::NOT_CONSTANT;
+				instruction_reads[i * 2] = instruction.r_arg1;
+				(*timeline)[instruction.r_arg1].last_read = i;
+			}
+			break;
+
+		case I3_ADD:
+		case I3_SUBTRACT:
+		case I3_MULTIPLY:
+		case I3_DIVIDE:
+			(*timeline)[instruction.r_dest].write_instruction = i;
+			if (register_constants[instruction.r_arg1].state != register_info::NOT_CONSTANT && register_constants[instruction.r_arg1].state != register_info::UNINITIALIZED
+				&& register_constants[instruction.r_arg2].state != register_info::NOT_CONSTANT && register_constants[instruction.r_arg2].state != register_info::UNINITIALIZED)
 			{
 				switch (instruction.i)
 				{
-				case I3_ADD:
-					instruction.r_arg1 = register_constants[instruction.r_arg1] + register_constants[instruction.r_arg2];
-					break;
-
-				case I3_MULTIPLY:
-					instruction.r_arg1 = register_constants[instruction.r_arg1] * register_constants[instruction.r_arg2];
-					break;
-
+				case I3_ADD:      instruction.r_arg1 = register_constants[instruction.r_arg1].value + register_constants[instruction.r_arg2].value; break;
+				case I3_SUBTRACT: instruction.r_arg1 = register_constants[instruction.r_arg1].value - register_constants[instruction.r_arg2].value; break;
+				case I3_MULTIPLY: instruction.r_arg1 = register_constants[instruction.r_arg1].value * register_constants[instruction.r_arg2].value; break;
+				case I3_DIVIDE:   instruction.r_arg1 = register_constants[instruction.r_arg1].value / register_constants[instruction.r_arg2].value; break;
 				default:
 					Unimplemented();
 					break;
 				}
 				instruction.i = I3_DATA;
-				register_constants[instruction.r_dest] = instruction.r_arg1;
+				register_constants[instruction.r_dest].value = instruction.r_arg1;
+				register_constants[instruction.r_dest].state = register_info::CONSTANT;
 			}
 			else
 			{
-				register_constants[instruction.r_dest] = TOP;
+				register_constants[instruction.r_dest].state = register_info::NOT_CONSTANT;
 				instruction_reads[i * 2] = instruction.r_arg1;
 				instruction_reads[i * 2 + 1] = instruction.r_arg2;
 				(*timeline)[instruction.r_arg1].last_read = i;
 				(*timeline)[instruction.r_arg2].last_read = i;
 			}
-		}
-		else
+			break;
+
+		default:
 			Unimplemented();
+			break;
+		}
 	}
 
 	while (instructions_used.size())

@@ -68,6 +68,12 @@ int check_expression(size_t expression_id)
 		V_REQUIRE(scope_find(st_get(ast_st, expression_node.value)) != ~0, "known identifier");
 		break;
 
+	case NODE_SUM:
+	case NODE_DIFFERENCE:
+	case NODE_PRODUCT:
+	case NODE_QUOTIENT:
+		break;
+
 	default:
 		Unimplemented();
 		break;

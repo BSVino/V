@@ -24,7 +24,9 @@ typedef enum {
 
 	// Operator tokens should be updated in parse_precendence_array and parse_operator_node if they are modified.
 	TOKEN_PLUS,             // +
+	TOKEN_MINUS,            // -
 	TOKEN_TIMES,            // *
+	TOKEN_DIVIDED,          // /
 } token_t;
 
 typedef enum {
@@ -34,8 +36,12 @@ typedef enum {
 	NODE_RETURN,
 	NODE_VARIABLE,
 	NODE_CONSTANT,
+
+	// These nodes should be updated in parse_operator_node if they are modified.
 	NODE_SUM,
+	NODE_DIFFERENCE,
 	NODE_PRODUCT,
+	NODE_QUOTIENT,
 } node_type_t;
 
 struct ast_node {
