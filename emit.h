@@ -2,7 +2,11 @@
 
 #include <vector>
 
-extern int emit_begin(size_t procedure_id, std::vector<int>& program, std::vector<int>& data);
+#include "vhash.h"
+
+#include "compile.h"
+
+extern int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* program, std::vector<int>* data);
 
 typedef enum {
 	I3_JUMP,     // Jump to label #arg1.
@@ -12,6 +16,7 @@ typedef enum {
 	I3_SUBTRACT, // dest <- arg1 - arg2, registers
 	I3_MULTIPLY, // dest <- arg1 * arg2, registers
 	I3_DIVIDE,   // dest <- arg1 / arg2, registers
+	I3_CALL,     // eip <- eip + arg1, registers
 } instruction_3ac_t;
 
 struct instruction_3ac

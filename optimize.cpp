@@ -109,6 +109,10 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 			}
 			break;
 
+		case I3_CALL:
+			Unimplemented();
+			break;
+
 		default:
 			Unimplemented();
 			break;

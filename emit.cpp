@@ -11,14 +11,23 @@
 
 using namespace std;
 
-static vector<int>* program;
-static vector<int>* data;
-
 static vhash<unsigned short> v2r; // A map of variables to registers
 static vector<const char*>   r2v; // A map of registers to variables
 static size_t next_const;
 
 static vector<instruction_3ac> procedure_3ac; // The procedure in three-address code
+
+struct procedure_info
+{
+	struct symbol_relocations
+	{
+		size_t    position;  // : i -> bytecode index
+		st_string procedure; // : i -> ast_st
+	};
+
+	vector<int> bytecode;
+	vector<symbol_relocations> relocations;
+};
 
 static size_t emit_find_register(const char* variable)
 {
@@ -51,7 +60,7 @@ static size_t emit_auto_register()
 	return index;
 }
 
-static int emit_expression(size_t expression_id, size_t* result_register)
+static int emit_expression(size_t expression_id, size_t* result_register, procedure_info* pi)
 {
 	if (expression_id == ~0)
 		return 1;
@@ -79,10 +88,10 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 	case NODE_QUOTIENT:
 	{
 		size_t left, right;
-		if (!emit_expression(expression.oper_left, &left))
+		if (!emit_expression(expression.oper_left, &left, pi))
 			return 0;
 
-		if (!emit_expression(expression.oper_right, &right))
+		if (!emit_expression(expression.oper_right, &right, pi))
 			return 0;
 
 		*result_register = emit_auto_register();
@@ -104,15 +113,28 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 		break;
 	}
 
+	case NODE_PROCEDURE_CALL:
+		pi->relocations.push_back(procedure_info::symbol_relocations());
+		pi->relocations.back().position = procedure_3ac.size();
+		pi->relocations.back().procedure = expression.value;
+
+		procedure_3ac.push_back(instruction_3ac());
+		procedure_3ac.back().flags = instruction_3ac::I3AC_NONE;
+		procedure_3ac.back().i = I3_CALL;
+		procedure_3ac.back().r_arg1 = pi->relocations.size()-1; // arg1 stores the relocation index.
+
+		*result_register = EMIT_RETURN_REGISTER_INDEX;
+		break;
+
 	default:
 		Unimplemented();
 		V_ERROR("Unexpected expression\n");
 	}
 
-	return emit_expression(expression.next_statement, result_register);
+	return emit_expression(expression.next_statement, result_register, pi);
 }
 
-static int emit_statement(size_t statement_id)
+static int emit_statement(size_t statement_id, procedure_info* pi)
 {
 	if (statement_id == ~0)
 		return 1;
@@ -126,7 +148,7 @@ static int emit_statement(size_t statement_id)
 		{
 			size_t expression_register;
 
-			if (!emit_expression(statement.next_expression, &expression_register))
+			if (!emit_expression(statement.next_expression, &expression_register, pi))
 				return 0;
 
 			size_t target = emit_find_register(st_get(ast_st, statement.value));
@@ -140,7 +162,7 @@ static int emit_statement(size_t statement_id)
 
 	case NODE_RETURN:
 		size_t expression_register;
-		if (!emit_expression(statement.next_expression, &expression_register))
+		if (!emit_expression(statement.next_expression, &expression_register, pi))
 			return 0;
 
 		procedure_3ac.push_back(instruction_3ac());
@@ -156,10 +178,10 @@ static int emit_statement(size_t statement_id)
 	case NODE_ASSIGN:
 	{
 		size_t left, right;
-		if (!emit_expression(statement.oper_left, &left))
+		if (!emit_expression(statement.oper_left, &left, pi))
 			return 0;
 
-		if (!emit_expression(statement.oper_right, &right))
+		if (!emit_expression(statement.oper_right, &right, pi))
 			return 0;
 
 		procedure_3ac.push_back(instruction_3ac());
@@ -174,7 +196,7 @@ static int emit_statement(size_t statement_id)
 		V_ERROR("Unexpected statement\n");
 	}
 
-	return emit_statement(statement.next_statement);
+	return emit_statement(statement.next_statement, pi);
 }
 
 static void emit_convert_to_ssa(vector<instruction_3ac>& input)
@@ -201,7 +223,7 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 
 		instruction.r_dest = unique_register;
 
-		if (instruction.i != I3_JUMP && instruction.i != I3_DATA)
+		if (instruction.i != I3_JUMP && instruction.i != I3_DATA && instruction.i != I3_CALL)
 		{
 			// These instructions use registers as their arguments. Replace them with the new one.
 			Assert(register_map[instruction.r_arg1] != ~0);
@@ -213,7 +235,7 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 	}
 }
 
-static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size_t>* variable_registers)
+static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size_t>* variable_registers, vector<int>* program, vector<int>* data, procedure_info* pi)
 {
 	program->clear();
 	for (size_t i = 0; i < procedure_3ac.size(); i++)
@@ -309,7 +331,7 @@ static void emit_allocate_registers(size_t num_target_registers, vector<size_t>*
 	}
 }
 
-static int emit_procedure(size_t procedure_id)
+static int emit_procedure(size_t procedure_id, std::vector<int>* program, std::vector<int>* program_data, procedure_info* pi)
 {
 	auto& procedure = ast[procedure_id];
 
@@ -322,7 +344,7 @@ static int emit_procedure(size_t procedure_id)
 	size_t return_register = emit_find_register(EMIT_RETURN_REGISTER); // Reserve the first value for the return address
 	Assert(return_register == EMIT_RETURN_REGISTER_INDEX);
 
-	if (!emit_statement(procedure.next_statement))
+	if (!emit_statement(procedure.next_statement, pi))
 		return 0;
 
 	emit_convert_to_ssa(procedure_3ac);
@@ -333,20 +355,41 @@ static int emit_procedure(size_t procedure_id)
 	vector<size_t> variable_registers;
 	emit_allocate_registers((size_t)(R_12-R_1+1), &variable_registers, &timeline);
 
-	emit_convert_to_bytecode(&procedure_3ac, &variable_registers);
+	emit_convert_to_bytecode(&procedure_3ac, &variable_registers, program, program_data, pi);
 
 	return 1;
 }
 
-int emit_begin(size_t main_procedure, std::vector<int>& input_program, std::vector<int>& input_data)
+int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* program, std::vector<int>* data)
 {
-	input_program.clear();
-	input_data.clear();
-	program = &input_program;
-	data = &input_data;
+	program->clear();
+	data->clear();
 
-	if (!emit_procedure(main_procedure))
+	vector<procedure_info> procedures; // indexed the same as pd->procedure_list
+	procedures.resize(pd->procedure_list.size());
+
+	size_t main_procedure_info = ~0;
+
+	for (size_t i = 0; i < pd->procedure_list.size(); i++)
+	{
+		if (pd->procedure_list[i] == main_procedure)
+			main_procedure_info = i;
+
+		const char* identifier = st_get(ast_st, ast[pd->procedure_list[i]].value);
+
+		auto* procedure_call = pd->call_graph_procedures.get(identifier);
+		if (procedure_call->status == procedure_calls::UNUSED)
+			continue;
+
+		if (!emit_procedure(pd->procedure_list[i], &procedures[i].bytecode, data, &procedures[i]))
+			return 0;
+	}
+
+	Assert(main_procedure_info != ~0);
+	if (main_procedure_info == ~0)
 		return 0;
+
+	*program = procedures[main_procedure_info].bytecode;
 
 	program->push_back(INSTRUCTION(I_DIE, 0, 0));
 

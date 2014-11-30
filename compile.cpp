@@ -1,25 +1,32 @@
+#include "compile.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <vector>
 
 #include "v.h"
+#include "vhash.h"
 #include "parse.h"
 #include "emit.h"
 
 using namespace std;
 
-vector<size_t> scope_identifiers;
-vector<size_t> scope_blocks;
+static vector<size_t> scope_identifiers; // : i -> ast index
+static vector<size_t> scope_blocks; // : i -> scope_identifiers
+
+static program_data pd;
 
 void scope_open()
 {
 	scope_blocks.push_back(scope_identifiers.size());
 }
 
-int scope_push(size_t identifier)
+// Pass me the index of an ast node that has a valid value field
+int scope_push(size_t identifier_ast_index)
 {
-	const char* id_name = st_get(ast_st, ast[identifier].value);
+	Assert(identifier_ast_index < ast.size() && ast[identifier_ast_index].value != ~0);
+	const char* id_name = st_get(ast_st, ast[identifier_ast_index].value);
 
 	// Check for duplicate identifiers in the same scope. If one exists, that is an error.
 	for (size_t i = scope_blocks.back(); i < scope_identifiers.size(); i++)
@@ -28,7 +35,7 @@ int scope_push(size_t identifier)
 			V_ERROR("Variable already in scope\n");
 	}
 
-	scope_identifiers.push_back(identifier);
+	scope_identifiers.push_back(identifier_ast_index);
 
 	return 1;
 }
@@ -72,10 +79,25 @@ int check_expression(size_t expression_id)
 	case NODE_DIFFERENCE:
 	case NODE_PRODUCT:
 	case NODE_QUOTIENT:
+		if (!(check_expression(expression_node.oper_left) && check_expression(expression_node.oper_right)))
+			return 0;
 		break;
 
 	case NODE_PROCEDURE_CALL:
-		V_REQUIRE(scope_find(st_get(ast_st, expression_node.value)) != ~0, "known procedure");
+	{
+		size_t procedure_index = scope_find(st_get(ast_st, expression_node.value));
+		V_REQUIRE(procedure_index != ~0, "known procedure");
+		V_REQUIRE(ast[procedure_index].type == NODE_PROCEDURE, "known procedure");
+		pd.call_graph.push_back(procedure_index);
+		break;
+	}
+
+	case NODE_RETURN:
+		return check_expression(expression_node.next_expression);
+
+	case NODE_DECLARATION:
+		V_REQUIRE(scope_find(st_get(ast_st, expression_node.value)) == ~0, "unknown identifier");
+		scope_push(expression_id);
 		break;
 
 	default:
@@ -91,6 +113,18 @@ int check_procedure(size_t procedure_id)
 	scope_open();
 
 	auto& procedure_node = ast[procedure_id];
+
+	const char* procedure_name = st_get(ast_st, procedure_node.value);
+
+	bool call_graph_found;
+	vhash<procedure_calls>::hash_t call_graph_hash;
+	size_t call_graph_index = pd.call_graph_procedures.find(procedure_name, &call_graph_hash, &call_graph_found);
+
+	procedure_calls calls;
+	calls.first = pd.call_graph.size();
+	calls.status = procedure_calls::UNUSED;
+	pd.call_graph_procedures.set(procedure_name, call_graph_index, call_graph_hash, calls);
+	pd.procedure_list.push_back(procedure_id);
 
 	// Add the parameters to the scope
 	size_t parameter_id = procedure_node.proc_first_parameter;
@@ -109,29 +143,14 @@ int check_procedure(size_t procedure_id)
 	size_t statement_id = procedure_node.next_statement;
 	while (statement_id != ~0)
 	{
-		auto& statement = ast[statement_id];
+		if (!check_expression(statement_id))
+			return 0;
 
-		switch (statement.type)
-		{
-		case NODE_DECLARATION:
-			V_REQUIRE(scope_push(statement_id), "unique identifier name");
-			break;
-
-		case NODE_RETURN:
-			if (!check_expression(statement.next_expression))
-				return 0;
-			break;
-
-		case NODE_ASSIGN:
-			break;
-
-		default:
-			Unimplemented();
-			break;
-		}
-
-		statement_id = statement.next_statement;
+		statement_id = ast[statement_id].next_statement;
 	}
+
+	auto* call_graph_entry = pd.call_graph_procedures.get(call_graph_index);
+	call_graph_entry->length = pd.call_graph.size() - call_graph_entry->first;
 
 	scope_close();
 	return 1;
@@ -141,6 +160,8 @@ int check_ast()
 {
 	scope_identifiers.clear();
 	scope_blocks.clear();
+	pd.call_graph.clear();
+	pd.call_graph_procedures.clear();
 
 	scope_open();
 
@@ -178,6 +199,32 @@ int check_ast()
 	return 1;
 }
 
+int analyze_call_graph()
+{
+	vector<const char*> stack;
+	stack.push_back("main");
+
+	while (stack.size())
+	{
+		bool found;
+		size_t procedure_index = pd.call_graph_procedures.find(stack.back(), 0, &found);
+
+		stack.pop_back();
+
+		Assert(found);
+		if (!found)
+			V_ERROR("procedure not found while crawling call graph");
+
+		auto* call = pd.call_graph_procedures.get(procedure_index);
+		call->status = procedure_calls::USED;
+
+		for (size_t i = call->first; i < call->first + call->length; i++)
+			stack.push_back(st_get(ast_st, ast[i].value));
+	}
+
+	return 1;
+}
+
 int compile(const char* string, size_t length, std::vector<int>& program, std::vector<int>& data)
 {
 	if (!parse_begin(string, length))
@@ -189,7 +236,10 @@ int compile(const char* string, size_t length, std::vector<int>& program, std::v
 	if (ast_main == ~0)
 		V_ERROR("No main procedure found.\n");
 
-	if (!emit_begin(ast_main, program, data))
+	if (!analyze_call_graph())
+		return 0;
+
+	if (!emit_begin(ast_main, &pd, &program, &data))
 		return 0;
 
 	return 1;

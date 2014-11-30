@@ -80,6 +80,8 @@ public:
 
 	size_t find(const char* k, hash_t* key_hash = NULL, bool* item_found = NULL)
 	{
+		Assert(entries); // You forgot to call clear() or init()
+
 		bool item_found_ = false;
 
 		hash_t hash_ = hash(k);
@@ -115,6 +117,8 @@ public:
 
 	void set(const char* k, size_t index, hash_t key_hash, Value v)
 	{
+		Assert(entries); // You forgot to call clear() or init()
+
 		entry_s* entry = &entries[index];
 		entry->flags |= VHASH_OCCUPIED;
 		entry->hash = key_hash;
@@ -132,11 +136,25 @@ public:
 
 	Value* get(size_t index)
 	{
+		Assert(values); // You forgot to call clear() or init()
+
+		return &values[index];
+	}
+
+	Value* get(const char* key)
+	{
+		bool found;
+		size_t index = find(key, NULL, &found);
+		if (!found)
+			return NULL;
+
 		return &values[index];
 	}
 
 	bool entry_exists(const char* key)
 	{
+		Assert(entries); // You forgot to call clear() or init()
+
 		bool found;
 		entry_s* entry = &entries[find(key, NULL, &found)];
 		return found;
