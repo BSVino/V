@@ -210,6 +210,8 @@ static int parse_expression_precedence(int precedence, size_t expression_parent,
 	ast[left_operand_index].parent = expression_parent;
 	*expression_index = left_operand_index;
 
+	size_t last_operator = ~0;
+
 	while (parse_peek_operator() && parse_precendence(token) >= precedence)
 	{
 		token_t op = token;
@@ -217,13 +219,18 @@ static int parse_expression_precedence(int precedence, size_t expression_parent,
 
 		size_t operation_index = ast.size();
 		ast_node operation;
-		operation.parent = expression_parent;
 		operation.type = parse_operator_node(op);
+		operation.parent = expression_parent;
 		operation.oper_left = left_operand_index;
 		ast.push_back(operation);
 
 		ast[left_operand_index].parent = operation_index;
 		*expression_index = operation_index;
+
+		if (last_operator != ~0)
+			ast[last_operator].parent = operation_index;
+		last_operator = operation_index;
+		left_operand_index = operation_index;
 
 		size_t right_operand_index;
 		V_REQUIRE(parse_expression_precedence(parse_precendence(op) + 1, operation_index, &right_operand_index), "expression");
