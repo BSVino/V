@@ -118,6 +118,9 @@ int check_procedure(size_t procedure_id)
 				return 0;
 			break;
 
+		case NODE_ASSIGN:
+			break;
+
 		default:
 			Unimplemented();
 			break;
@@ -132,6 +135,9 @@ int check_procedure(size_t procedure_id)
 
 int check_ast()
 {
+	scope_identifiers.clear();
+	scope_blocks.clear();
+
 	scope_open();
 
 	// First add all identifiers in global scope.
@@ -168,25 +174,10 @@ int check_ast()
 	return 1;
 }
 
-int compile(const char* filename, std::vector<int>& program, std::vector<int>& data)
+int compile(const char* string, size_t length, std::vector<int>& program, std::vector<int>& data)
 {
-	FILE* fp = fopen(filename, "rb");
-
-	fseek(fp, 0, SEEK_END);
-	int file_size = ftell(fp);
-	rewind(fp);
-
-	char* file_contents = (char*)malloc(file_size+1);
-
-	size_t read = fread(file_contents, 1, file_size, fp);
-	file_contents[file_size] = 0;
-
-	fclose(fp);
-
-	if (!parse_begin(file_contents, file_size))
+	if (!parse_begin(string, length))
 		return 0;
-
-	free(file_contents);
 
 	if (!check_ast())
 		return 0;
@@ -199,3 +190,29 @@ int compile(const char* filename, std::vector<int>& program, std::vector<int>& d
 
 	return 1;
 }
+
+int compile_file(const char* filename, std::vector<int>& program, std::vector<int>& data)
+{
+	FILE* fp = fopen(filename, "rb");
+
+	if (!fp)
+		return 0;
+
+	fseek(fp, 0, SEEK_END);
+	int file_size = ftell(fp);
+	rewind(fp);
+
+	char* file_contents = (char*)malloc(file_size + 1);
+
+	size_t read = fread(file_contents, 1, file_size, fp);
+	file_contents[file_size] = 0;
+
+	fclose(fp);
+
+	int result = compile(file_contents, file_size, program, data);
+
+	free(file_contents);
+
+	return result;
+}
+

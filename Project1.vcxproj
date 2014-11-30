@@ -25,6 +25,7 @@
     <ClCompile Include="optimize.cpp" />
     <ClCompile Include="parse.cpp" />
     <ClCompile Include="stringtable.cpp" />
+    <ClCompile Include="test.cpp" />
     <ClCompile Include="vm.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

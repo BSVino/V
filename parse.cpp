@@ -139,6 +139,7 @@ static char parse_precendence_array[] = {
 	1, // TOKEN_MINUS
 	2, // TOKEN_TIMES
 	2, // TOKEN_DIVIDED
+	3, // TOKEN_ASSIGN
 };
 
 static int parse_precendence(token_t t)
@@ -203,7 +204,11 @@ static int parse_expression_operand(size_t* expression_index)
 
 static int parse_peek_operator()
 {
-	return parse_peek(TOKEN_PLUS) || parse_peek(TOKEN_TIMES) || parse_peek(TOKEN_MINUS) || parse_peek(TOKEN_DIVIDED);
+	return parse_peek(TOKEN_ASSIGN) ||
+		parse_peek(TOKEN_PLUS) ||
+		parse_peek(TOKEN_TIMES) ||
+		parse_peek(TOKEN_MINUS) ||
+		parse_peek(TOKEN_DIVIDED);
 }
 
 static int parse_expression_precedence(int precedence, size_t expression_parent, size_t* expression_index)
@@ -257,6 +262,9 @@ static int parse_declaration(size_t parent, size_t* index)
 	if (!parse_peek(TOKEN_IDENTIFIER))
 		return 0;
 
+	if (parse_peek2() != TOKEN_DECLARE && parse_peek2() != TOKEN_DECLARE_ASSIGN)
+		return 0;
+
 	*index = ast.size();
 
 	ast_node declaration;
@@ -277,16 +285,21 @@ static int parse_declaration(size_t parent, size_t* index)
 		{
 			PARSE_EAT(TOKEN_ASSIGN);
 			size_t assign_expression;
-			if (parse_expression(*index, &assign_expression))
-			{
-				ast[*index].next_expression = assign_expression;
-			}
+			V_REQUIRE(parse_expression(*index, &assign_expression), "expression");
+			ast[*index].next_expression = assign_expression;
 		}
 	}
 	else if (parse_peek(TOKEN_DECLARE_ASSIGN))
-		Unimplemented();
-	else if (parse_peek(TOKEN_ASSIGN))
-		Unimplemented();
+	{
+		PARSE_EAT(TOKEN_DECLARE_ASSIGN);
+		ast[*index].decl_data_type = token;
+
+		size_t assign_expression;
+		if (parse_expression(*index, &assign_expression))
+			ast[*index].next_expression = assign_expression;
+	}
+	else
+		V_ERROR("Invalid declaration");
 
 	return 1;
 }
@@ -317,20 +330,17 @@ static int parse_statement(size_t parent, size_t* index)
 {
 	if (parse_peek(TOKEN_IDENTIFIER))
 	{
-		token_t peek2 = parse_peek2();
-
-		if (peek2 == TOKEN_ASSIGN || peek2 == TOKEN_DECLARE_ASSIGN || peek2 == TOKEN_DECLARE)
+		if (parse_declaration(parent, index))
 		{
-			if (parse_declaration(parent, index))
-			{
-				PARSE_EAT(TOKEN_SEMICOLON);
-				return 1;
-			}
-			else
-				V_ERROR("Invalid declaration");
+			PARSE_EAT(TOKEN_SEMICOLON);
+			return 1;
 		}
 		else
-			return parse_expression(parent, index);
+		{
+			V_REQUIRE(parse_expression(parent, index), "expression");
+			PARSE_EAT(TOKEN_SEMICOLON);
+			return 1;
+		}
 	}
 
 	if (parse_return_statement(parent, index))
@@ -400,6 +410,7 @@ int parse_begin(const char* file_contents, size_t file_size)
 {
 	ast.clear();
 	ast_st.clear();
+	ast_globals.clear();
 	ast_main = ~0;
 
 	p = file_contents;

@@ -12,7 +12,6 @@ typedef enum {
 	TOKEN_NUMBER,           // e.g. 123, 2.4, 0
 	TOKEN_DECLARE_ASSIGN,   // :=
 	TOKEN_DECLARE,          // :
-	TOKEN_ASSIGN,           // =
 	TOKEN_OPEN_PAREN,       // (
 	TOKEN_CLOSE_PAREN,      // )
 	TOKEN_OPEN_CURLY,       // {
@@ -27,6 +26,7 @@ typedef enum {
 	TOKEN_MINUS,            // -
 	TOKEN_TIMES,            // *
 	TOKEN_DIVIDED,          // /
+	TOKEN_ASSIGN,           // =
 } token_t;
 
 typedef enum {
@@ -42,6 +42,7 @@ typedef enum {
 	NODE_DIFFERENCE,
 	NODE_PRODUCT,
 	NODE_QUOTIENT,
+	NODE_ASSIGN,
 } node_type_t;
 
 struct ast_node {

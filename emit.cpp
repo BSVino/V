@@ -79,8 +79,11 @@ static int emit_expression(size_t expression_id, size_t* result_register)
 	case NODE_QUOTIENT:
 	{
 		size_t left, right;
-		emit_expression(expression.oper_left, &left);
-		emit_expression(expression.oper_right, &right);
+		if (!emit_expression(expression.oper_left, &left))
+			return 0;
+
+		if (!emit_expression(expression.oper_right, &right))
+			return 0;
 
 		*result_register = emit_auto_register();
 		procedure_3ac.push_back(instruction_3ac());
@@ -119,7 +122,7 @@ static int emit_statement(size_t statement_id)
 	switch (statement.type)
 	{
 	case NODE_DECLARATION:
-		if (statement.next_expression)
+		if (statement.next_expression != ~0)
 		{
 			size_t expression_register;
 
@@ -149,6 +152,22 @@ static int emit_statement(size_t statement_id)
 		procedure_3ac.back().i = I3_JUMP;
 		procedure_3ac.back().r_arg1 = EMIT_JUMP_END_OF_PROCEDURE;
 		return 1;
+
+	case NODE_ASSIGN:
+	{
+		size_t left, right;
+		if (!emit_expression(statement.oper_left, &left))
+			return 0;
+
+		if (!emit_expression(statement.oper_right, &right))
+			return 0;
+
+		procedure_3ac.push_back(instruction_3ac());
+		procedure_3ac.back().i = I3_MOVE;
+		procedure_3ac.back().r_dest = left;
+		procedure_3ac.back().r_arg1 = right;
+		break;
+	}
 
 	default:
 		Unimplemented();
@@ -207,7 +226,7 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 		switch (instruction->i)
 		{
 		case I3_DATA:
-			if (instruction->r_arg1 < (1 << ARG1_BITS))
+			if (instruction->r_arg1 < (1 << (ARG1_BITS-1)))
 			{
 				Assert((*variable_registers)[instruction->r_dest] != ~0);
 				program->push_back(INSTRUCTION(I_MOVE, R_1 + (*variable_registers)[instruction->r_dest], instruction->r_arg1));

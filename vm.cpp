@@ -98,5 +98,5 @@ dead:
 
 	printf("Program exited with result: %d\n", registers[R_1]);
 
-	return 1;
+	return registers[R_1];
 }
