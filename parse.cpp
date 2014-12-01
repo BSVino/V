@@ -163,7 +163,7 @@ static int parse_expression_terminals(size_t* expression_index)
 		ast.back().type = NODE_CONSTANT;
 		*expression_index = ast.size() - 1;
 		PARSE_EAT(TOKEN_NUMBER);
-		return 1;
+		return PARSE_OK;
 	}
 
 	if (parse_peek(TOKEN_IDENTIFIER))
@@ -190,10 +190,10 @@ static int parse_expression_terminals(size_t* expression_index)
 			ast.back().type = NODE_VARIABLE;
 			*expression_index = ast.size() - 1;
 		}
-		return 1;
+		return PARSE_OK;
 	}
 
-	return 0;
+	return PARSE_ERROR;
 }
 
 extern int parse_expression(size_t expression_parent, size_t* expression_index);
@@ -213,22 +213,25 @@ static int parse_expression_operand(size_t* expression_index)
 		Unimplemented();
 		V_REQUIRE(parse_expression(0, expression_index), "expression");
 		PARSE_EAT(TOKEN_CLOSE_PAREN);
-		return 1;
+		return PARSE_OK;
 	}
 
 	V_REQUIRE(parse_expression_terminals(expression_index), "terminal");
 
-	return 1;
+	return PARSE_OK;
 }
 
 // operator <- "=" | "+" | "-" | "*" | "/" | ...
 static int parse_peek_operator()
 {
-	return parse_peek(TOKEN_ASSIGN) ||
+	if (parse_peek(TOKEN_ASSIGN) ||
 		parse_peek(TOKEN_PLUS) ||
 		parse_peek(TOKEN_TIMES) ||
 		parse_peek(TOKEN_MINUS) ||
-		parse_peek(TOKEN_DIVIDED);
+		parse_peek(TOKEN_DIVIDED))
+		return PARSE_CONTINUE;
+
+	return PARSE_OK;
 }
 
 // expression_precedence(p) <- operand { operator expression_precedence(op+1) }
@@ -244,7 +247,7 @@ static int parse_expression_precedence(int precedence, size_t expression_parent,
 
 	size_t last_operator = ~0;
 
-	while (parse_peek_operator() && parse_precendence(token) >= precedence)
+	while (parse_peek_operator() == PARSE_CONTINUE && parse_precendence(token) >= precedence)
 	{
 		token_t op = token;
 		PARSE_EAT(op);
@@ -270,7 +273,7 @@ static int parse_expression_precedence(int precedence, size_t expression_parent,
 		ast[operation_index].oper_right = right_operand_index;
 	}
 
-	return 1;
+	return PARSE_OK;
 }
 
 // expression <- expression_precedence(0)
@@ -283,10 +286,10 @@ static int parse_expression(size_t expression_parent, size_t* expression_index)
 static int parse_declaration(size_t parent, size_t* index)
 {
 	if (!parse_peek(TOKEN_IDENTIFIER))
-		return 0;
+		return PARSE_ERROR;
 
 	if (parse_peek2() != TOKEN_DECLARE && parse_peek2() != TOKEN_DECLARE_ASSIGN)
-		return 0;
+		return PARSE_ERROR;
 
 	*index = ast.size();
 
@@ -324,14 +327,14 @@ static int parse_declaration(size_t parent, size_t* index)
 	else
 		V_ERROR("Invalid declaration\n");
 
-	return 1;
+	return PARSE_OK;
 }
 
 // return_statement <- 'return' expression
 static int parse_return_statement(size_t parent, size_t* index)
 {
 	if (!parse_peek(TOKEN_RETURN))
-		return 0;
+		return PARSE_ERROR;
 
 	PARSE_EAT(TOKEN_RETURN);
 
@@ -358,23 +361,23 @@ static int parse_statement(size_t parent, size_t* index)
 		if (parse_declaration(parent, index))
 		{
 			PARSE_EAT(TOKEN_SEMICOLON);
-			return 1;
+			return PARSE_CONTINUE;
 		}
 		else
 		{
 			V_REQUIRE(parse_expression(parent, index), "expression");
 			PARSE_EAT(TOKEN_SEMICOLON);
-			return 1;
+			return PARSE_CONTINUE;
 		}
 	}
 
 	if (parse_return_statement(parent, index))
 	{
 		PARSE_EAT(TOKEN_SEMICOLON);
-		return 1;
+		return PARSE_CONTINUE;
 	}
 
-	return 0;
+	return PARSE_OK;
 }
 
 // procedure_declaration <- "(" [declaration {, declaration}] ")" "{" {statement} "}"
@@ -417,15 +420,19 @@ static int parse_procedure_declaration(st_string identifier)
 	{
 		size_t last_statement = procedure_id;
 		size_t statement_id;
-		while (parse_statement(procedure_id, &statement_id))
+		int result;
+		while ((result = parse_statement(procedure_id, &statement_id)) == PARSE_CONTINUE)
 		{
 			ast[last_statement].next_statement = statement_id;
 			last_statement = statement_id;
 		}
+
+		if (!result)
+			return PARSE_ERROR;
 	}
 	PARSE_EAT(TOKEN_CLOSE_CURLY);
 
-	return 1;
+	return PARSE_OK;
 }
 
 /*
@@ -438,7 +445,7 @@ static int parse_global()
 	if (parse_peek(TOKEN_SEMICOLON))
 	{
 		PARSE_EAT(TOKEN_SEMICOLON);
-		return 1;
+		return PARSE_OK;
 	}
 
 	st_string identifier = st_add(ast_st, token_string, token_length);
@@ -460,13 +467,13 @@ static int parse_global()
 			if (parse_peek(TOKEN_SEMICOLON))
 				PARSE_EAT(TOKEN_SEMICOLON);
 
-			return 1;
+			return PARSE_OK;
 		}
 	}
 	else
 		V_ERROR("Invalid declaration\n");
 
-	return 1;
+	return PARSE_OK;
 }
 
 int parse_begin(const char* file_contents, size_t file_size)
@@ -485,7 +492,7 @@ int parse_begin(const char* file_contents, size_t file_size)
 		V_REQUIRE(parse_global(), "global statement");
 	}
 
-	return 1;
+	return PARSE_OK;
 }
 
 

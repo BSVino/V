@@ -1,14 +1,14 @@
 test := ()
 {
-	return 42;
+	return test2() + 1;
 }
 
 test2 := ()
 {
-	return 24;
+	return 41;
 }
 
 main := ()
 {
-	return test() + test2();
+	return test();
 }

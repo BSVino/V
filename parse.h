@@ -89,6 +89,10 @@ do { \
 	if (!r) V_ERROR("ERROR: Expected " #x ".\n"); \
 } while (0) \
 
+#define PARSE_ERROR    0
+#define PARSE_OK       1
+#define PARSE_CONTINUE 2
+
 int parse_begin(const char* file_contents, size_t file_size);
 
 extern std::vector<ast_node> ast;

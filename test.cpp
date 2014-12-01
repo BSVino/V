@@ -52,6 +52,7 @@ void do_tests()
 	test("main := ()", false);
 	test("main := {}", false);
 	test("main := (argc: int) { return 42; }", true, 42);
+	test("main := () { return 42 }", false); // Missing semicolon
 	test("main := () { return 42; }", true, 42);
 	test("main := () { return 5 + 7; }", true, 12);
 	test("main := () { x: int = 5 + 7; return x; }", true, 12);
@@ -62,6 +63,9 @@ void do_tests()
 	test("main := () { x:= 42; return x; }", true, 42);
 	test("main := () { x: int = 42; return x; }", true, 42);
 	test("main := () { x: int; x = 42; return x; }", true, 42);
+	test("test := () { return 42; } main := () { return test(); }", true, 42);
+	test("test := () { return 42; } test2 := () { return 24; } main := () { return test() + test2(); }", true, 66);
+	test("test := () { return test2() + 1; } test2 := () { return 41; } main := () { return test(); }", true, 42); // Procedures out of order
 
 	// TO CHECK:
 	// * Variables not used before they are declared
