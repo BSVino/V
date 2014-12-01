@@ -12,27 +12,41 @@
 
 using namespace std;
 
-vector<int> program;
+vector<instruction_t> program;
 vector<int> data;
 
 void test(const char* string, bool should_compile, int desired_result = 0)
 {
 	size_t length = strlen(string);
-	int result = compile(string, length, program, data);
+	int compiled = compile(string, length, program, data);
 
 	if (!should_compile)
 	{
-		Assert(!result);
+		Assert(!compiled);
 		return;
 	}
 
-	Assert(result && vm(program.data(), data.data()) == desired_result);
+	instruction_t* program_data = program.data();
+	int* data_data = data.data();
+
+	int result = vm(program_data, data_data);
+	Assert(compiled && result == desired_result);
+
+	if (!compiled)
+		printf("Compile failed.\n");
+	else if (result != desired_result)
+	{
+		printf("Program listing:\n\n");
+		for (size_t i = 0; i < program.size(); i++)
+			print_instruction(program[i]);
+	}
 }
 
 extern void test_vhash();
 
 void do_tests()
 {
+	test("", false);
 	test("main ", false);
 	test("main := ", false);
 	test("main := ()", false);
@@ -54,6 +68,7 @@ void do_tests()
 	// * Assignment to constants is a compiler error
 	// * Something that screws up the register order and SSA has to fix
 	// * Main exists, main is a procedure, main has either no or the standard parameters
+	// * Left side of assigns are l values
 
 	test_vhash();
 }

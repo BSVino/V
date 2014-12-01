@@ -9,11 +9,11 @@ static size_t registers[REGISTERS];
 static size_t stack_size = 1024 * 1024;
 static char* stack = NULL;
 
-#define GET_INSTRUCTION(data) (instruction_t)((data) >> (ARG1_BITS + ARG2_BITS))
+#define GET_INSTRUCTION(data) (opcode_t)((data) >> (ARG1_BITS + ARG2_BITS))
 #define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
 #define GET_ARG2(data) (register_t)((data) & ARG2_MASK)
 
-int vm(int* program, int* data)
+int vm(instruction_t* program, int* data)
 {
 	if (!stack)
 		stack = (char*)malloc(stack_size);
@@ -23,8 +23,8 @@ int vm(int* program, int* data)
 
 	while (true)
 	{
-		int current_i = *(int*)registers[R_IP];
-		instruction_t i = GET_INSTRUCTION(current_i);
+		instruction_t current_i = *(instruction_t*)registers[R_IP];
+		opcode_t i = GET_INSTRUCTION(current_i);
 		register_t arg1 = GET_ARG1(current_i);
 		register_t arg2 = GET_ARG2(current_i);
 		switch (i)
@@ -33,7 +33,7 @@ int vm(int* program, int* data)
 			goto dead;
 
 		case I_JUMP:
-			registers[R_IP] += arg1 * sizeof(int);
+			registers[R_IP] += arg1 * sizeof(instruction_t);
 			break;
 
 		case I_MOVE:
@@ -90,7 +90,7 @@ int vm(int* program, int* data)
 			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
 			*(size_t*)registers[R_SP] = registers[R_IP];
 			registers[R_SP] += sizeof(size_t);
-			registers[R_IP] += registers[arg1] * sizeof(int);
+			registers[R_IP] += registers[arg1] * sizeof(instruction_t);
 			break;
 
 		case I_RETURN:
@@ -104,7 +104,7 @@ int vm(int* program, int* data)
 			break;
 		}
 
-		registers[R_IP] += sizeof(int);
+		registers[R_IP] += sizeof(instruction_t);
 	}
 
 dead:
@@ -112,4 +112,35 @@ dead:
 	printf("Program exited with result: %d\n", registers[R_1]);
 
 	return registers[R_1];
+}
+
+void print_instruction(instruction_t print_i)
+{
+	opcode_t i = GET_INSTRUCTION(print_i);
+	register_t arg1 = GET_ARG1(print_i);
+	register_t arg2 = GET_ARG2(print_i);
+
+	switch (i)
+	{
+	case I_DIE:      printf("I_DIE\n"); break;
+	case I_JUMP:     printf("I_JUMP %d\n", arg1); break;
+	case I_MOVE:     printf("I_MOVE %d %d\n", arg1, arg2); break;
+	case I_LOAD:     printf("I_LOAD %d %d\n", arg1, arg2); break;
+	case I_DATA:     printf("I_DATA %d %d\n", arg1, arg2); break;
+	case I_DATALOAD: printf("I_DATALOAD %d %d\n", arg1, arg2); break;
+	case I_ADD:      printf("I_ADD %d %d\n", arg1, arg2); break;
+	case I_SUBTRACT: printf("I_SUBTRACT %d %d\n", arg1, arg2); break;
+	case I_MULTIPLY: printf("I_MULTIPLY %d %d\n", arg1, arg2); break;
+	case I_DIVIDE:   printf("I_DIVIDE %d %d\n", arg1, arg2); break;
+	case I_DUMP:     printf("I_DUMP %d\n", arg1); break;
+	case I_PUSH:     printf("I_PUSH %d\n", arg1); break;
+	case I_POP:      printf("I_POP %d\n", arg1); break;
+	case I_CALL:     printf("I_CALL %d\n", arg1); break;
+	case I_RETURN:   printf("I_RETURN\n"); break;
+
+	default:
+		Unimplemented();
+		printf("Unknown instruction.\n");
+		break;
+	}
 }

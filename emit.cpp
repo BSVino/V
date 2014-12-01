@@ -25,7 +25,7 @@ struct procedure_info
 		st_string procedure; // : i -> ast_st
 	};
 
-	vector<int> bytecode;
+	vector<instruction_t> bytecode;
 	vector<symbol_relocations> relocations;
 };
 
@@ -295,7 +295,7 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 	}
 }
 
-static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size_t>* variable_registers, vector<int>* program, vector<int>* data, procedure_info* pi)
+static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size_t>* variable_registers, vector<instruction_t>* program, vector<int>* data, procedure_info* pi)
 {
 	program->clear();
 	for (size_t i = 0; i < procedure_3ac.size(); i++)
@@ -393,7 +393,7 @@ static void emit_allocate_registers(size_t num_target_registers, vector<size_t>*
 	}
 }
 
-static int emit_procedure(size_t procedure_id, std::vector<int>* program, std::vector<int>* program_data, procedure_info* pi)
+static int emit_procedure(size_t procedure_id, std::vector<instruction_t>* program, std::vector<int>* program_data, procedure_info* pi)
 {
 	auto& procedure = ast[procedure_id];
 
@@ -420,7 +420,7 @@ static int emit_procedure(size_t procedure_id, std::vector<int>* program, std::v
 	return 1;
 }
 
-int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* program, std::vector<int>* data)
+int emit_begin(size_t main_procedure, program_data* pd, std::vector<instruction_t>* program, std::vector<int>* data)
 {
 	program->clear();
 	data->clear();
@@ -443,7 +443,10 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* progra
 		if (procedure_call->status == procedure_calls::UNUSED)
 			continue;
 
-		if (!emit_procedure(pd->procedure_list[i], &procedures[i].bytecode, data, &procedures[i]))
+		size_t procedure = pd->procedure_list[i];
+		vector<instruction_t>* bytecode = &procedures[i].bytecode;
+		procedure_info* procedure_info = &procedures[i];
+		if (!emit_procedure(procedure, bytecode, data, procedure_info))
 			return 0;
 
 		total_procedures_size += procedures[i].bytecode.size();
@@ -469,7 +472,7 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* progra
 	{
 		auto& main_procedure_bytecode = procedures[main_procedure_info].bytecode;
 
-		memcpy(&(*program)[current_instruction], &main_procedure_bytecode[0], sizeof(int) * main_procedure_bytecode.size());
+		memcpy(&(*program)[current_instruction], &main_procedure_bytecode[0], sizeof(instruction_t) * main_procedure_bytecode.size());
 
 		current_instruction += main_procedure_bytecode.size();
 	}
@@ -481,7 +484,7 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* progra
 
 		auto& procedure_bytecode = procedures[pd->procedure_list[i]].bytecode;
 
-		memcpy(&(*program)[current_instruction], procedure_bytecode.data(), sizeof(int) * procedure_bytecode.size());
+		memcpy(&(*program)[current_instruction], procedure_bytecode.data(), sizeof(instruction_t) * procedure_bytecode.size());
 
 		current_instruction += procedure_bytecode.size();
 	}

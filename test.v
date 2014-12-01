@@ -1,4 +1,1 @@
-main := ()
-{
-	return 42;
-}
+main := () { x:= 42; return x; }

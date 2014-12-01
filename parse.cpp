@@ -322,7 +322,7 @@ static int parse_declaration(size_t parent, size_t* index)
 			ast[*index].next_expression = assign_expression;
 	}
 	else
-		V_ERROR("Invalid declaration");
+		V_ERROR("Invalid declaration\n");
 
 	return 1;
 }
@@ -464,7 +464,7 @@ static int parse_global()
 		}
 	}
 	else
-		V_ERROR("Invalid declaration");
+		V_ERROR("Invalid declaration\n");
 
 	return 1;
 }

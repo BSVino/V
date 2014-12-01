@@ -12,7 +12,7 @@ using namespace std;
 
 void do_tests();
 
-//#define V_TEST
+#define V_TEST
 
 int main(int argc, char** args)
 {
@@ -20,7 +20,7 @@ int main(int argc, char** args)
 	do_tests();
 #endif
 
-	vector<int> program;
+	vector<instruction_t> program;
 	vector<int> data;
 
 	if (!compile_file(args[1], program, data))

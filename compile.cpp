@@ -100,6 +100,11 @@ int check_expression(size_t expression_id)
 		scope_push(expression_id);
 		break;
 
+	case NODE_ASSIGN:
+		if (!(check_expression(expression_node.oper_left) && check_expression(expression_node.oper_right)))
+			return 0;
+		break;
+
 	default:
 		Unimplemented();
 		break;
@@ -156,12 +161,18 @@ int check_procedure(size_t procedure_id)
 	return 1;
 }
 
+void program_data::init()
+{
+	call_graph.clear();
+	call_graph_procedures.clear();
+	procedure_list.clear();
+}
+
 int check_ast()
 {
 	scope_identifiers.clear();
 	scope_blocks.clear();
-	pd.call_graph.clear();
-	pd.call_graph_procedures.clear();
+	pd.init();
 
 	scope_open();
 
@@ -225,7 +236,7 @@ int analyze_call_graph()
 	return 1;
 }
 
-int compile(const char* string, size_t length, std::vector<int>& program, std::vector<int>& data)
+int compile(const char* string, size_t length, std::vector<instruction_t>& program, std::vector<int>& data)
 {
 	if (!parse_begin(string, length))
 		return 0;
@@ -245,7 +256,7 @@ int compile(const char* string, size_t length, std::vector<int>& program, std::v
 	return 1;
 }
 
-int compile_file(const char* filename, std::vector<int>& program, std::vector<int>& data)
+int compile_file(const char* filename, std::vector<instruction_t>& program, std::vector<int>& data)
 {
 	FILE* fp = fopen(filename, "rb");
 

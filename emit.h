@@ -6,7 +6,7 @@
 
 #include "compile.h"
 
-extern int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* program, std::vector<int>* data);
+extern int emit_begin(size_t main_procedure, program_data* pd, std::vector<instruction_t>* program, std::vector<int>* data);
 
 typedef enum {
 	I3_DATA,     // dest <- arg1          arg1 a constant

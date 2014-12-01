@@ -4,6 +4,8 @@
 
 #include "vhash.h"
 
+#include "vm.h"
+
 struct procedure_calls
 {
 	size_t first;
@@ -16,11 +18,14 @@ struct procedure_calls
 
 struct program_data
 {
+	// Add any stuff here, clear it in init()
 	vhash<procedure_calls> call_graph_procedures; // : procedure name -> call_graph
 	std::vector<size_t> call_graph;               // : i -> ast node index
 
 	std::vector<size_t> procedure_list; // : i -> ast node index
+
+	void init();
 };
 
-int compile(const char* string, size_t length, std::vector<int>& program, std::vector<int>& data);
-int compile_file(const char* filename, std::vector<int>& program, std::vector<int>& data);
+int compile(const char* string, size_t length, std::vector<instruction_t>& program, std::vector<int>& data);
+int compile_file(const char* filename, std::vector<instruction_t>& program, std::vector<int>& data);
