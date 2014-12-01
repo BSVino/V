@@ -332,8 +332,10 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 			Assert((*variable_registers)[instruction->r_dest] != ~0);
 			Assert((*variable_registers)[instruction->r_arg1] != ~0);
 			Assert((*variable_registers)[instruction->r_arg2] != ~0);
-			// TODO: Optimize this move
-			program->push_back(INSTRUCTION(I_COPY, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg1]));
+
+			if ((*variable_registers)[instruction->r_dest] != (*variable_registers)[instruction->r_arg1])
+				program->push_back(INSTRUCTION(I_COPY, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg1]));
+
 			program->push_back(INSTRUCTION(I_ADD, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg2]));
 			break;
 
@@ -341,9 +343,7 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 			Assert((*variable_registers)[instruction->r_dest] != ~0);
 
 			if ((*variable_registers)[instruction->r_dest] == 0)
-			{
 				program->push_back(INSTRUCTION(I_CALL, 0, 0));
-			}
 			else
 			{
 				// TODO: Optimize this push/pop nonsense
@@ -357,7 +357,10 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 
 		case I3_RETURN:
 			Assert((*variable_registers)[instruction->r_arg1] != ~0);
-			program->push_back(INSTRUCTION(I_COPY, R_1, R_1 + (*variable_registers)[instruction->r_arg1]));
+
+			if ((*variable_registers)[instruction->r_arg1] != 0)
+				program->push_back(INSTRUCTION(I_COPY, R_1, R_1 + (*variable_registers)[instruction->r_arg1]));
+
 			program->push_back(INSTRUCTION(I_RETURN, 0, 0));
 			break;
 
@@ -401,7 +404,9 @@ static void emit_allocate_registers(size_t num_target_registers, vector<size_t>*
 			size_t last_write = std::max(variable.write_instruction, other.write_instruction);
 			size_t first_read = std::min(variable.last_read, other.last_read);
 
-			if (last_write <= first_read)
+			// If this is a's last read and b's first write, then the two can share a register.
+			// Thus, we don't have to have a <= here, a < will do just fine.
+			if (last_write < first_read)
 				possible_registers &= ~(1<<j);
 		}
 
