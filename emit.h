@@ -15,7 +15,7 @@ typedef enum {
 	I3_SUBTRACT, // dest <- arg1 - arg2   registers
 	I3_MULTIPLY, // dest <- arg1 * arg2   registers
 	I3_DIVIDE,   // dest <- arg1 / arg2   registers
-	I3_CALL,     // (eip + arg1)()        arg1 a register
+	I3_CALL,     // dest <- (eip + n)()   n to be replaced by the symbol relocator
 	I3_RETURN,   // return arg1           arg1 a register
 } instruction_3ac_t;
 

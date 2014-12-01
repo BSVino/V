@@ -1,20 +1,29 @@
 #pragma once
 
-#define INSTRUCTION_BITS 10
+#define INSTRUCTION_BITS 32
+#define OPCODE_BITS 10
 #define ARG1_BITS 4
 #define ARG2_BITS 4
 #define ARG1_MASK 0xF
 #define ARG2_MASK 0xF
+#define CALL_ARG_BITS 22
+#define CALL_ARG_MASK 0x3FFFFF
 
 #define DATA(d) (d)
-#define INSTRUCTION(i, arg1, arg2) {(instruction_t)((i << (ARG1_BITS + ARG2_BITS)) | ((arg1&ARG1_MASK) << (ARG2_BITS)) | (arg2&ARG2_MASK))}
+#define INSTRUCTION(i, arg1, arg2) {(instruction_t)((i << (INSTRUCTION_BITS - OPCODE_BITS)) | ((arg1&ARG1_MASK) << (ARG2_BITS)) | (arg2&ARG2_MASK))}
+#define INSTRUCTION_CALL(arg) {(instruction_t)((I_CALL << (INSTRUCTION_BITS - OPCODE_BITS)) | (arg&CALL_ARG_MASK))}
+
+#define GET_OPCODE(data) (opcode_t)((data) >> (INSTRUCTION_BITS - OPCODE_BITS))
+#define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
+#define GET_ARG2(data) (register_t)((data) & ARG2_MASK)
+#define GET_CALL_ARG(data) (size_t)((data) & CALL_ARG_MASK)
 
 #define REGISTERS 16
 
 typedef enum {
 	I_DIE = 0,  // End the program
-	I_JUMP,     // R_IP += arg1 -- arg1 is a constant.
-	I_MOVE,     // arg1 <- arg2 -- arg2 is a constant.
+	I_JUMP,     // R_IP += arg1 -- arg1 a constant
+	I_MOVE,     // arg1 <- arg2 -- arg1 a register, arg2 a constant
 	I_LOAD,     // arg1 <- *arg2
 	I_DATA,     // arg1 <- &data[arg2]
 	I_DATALOAD, // arg1 <- data[arg2]
@@ -25,7 +34,7 @@ typedef enum {
 	I_DUMP,     // Dump register arg1
 	I_PUSH,     // *R_SP <- arg1; R_SP++
 	I_POP,      // R_SP--; arg1 <- *R_SP
-	I_CALL,     // push R_IP; R_IP <- arg1
+	I_CALL,     // push R_IP; R_IP <- R_IP + arg1 -- arg1 a constant
 	I_RETURN,   // pop R_IP
 } opcode_t;
 

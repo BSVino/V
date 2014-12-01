@@ -9,10 +9,6 @@ static size_t registers[REGISTERS];
 static size_t stack_size = 1024 * 1024;
 static char* stack = NULL;
 
-#define GET_INSTRUCTION(data) (opcode_t)((data) >> (ARG1_BITS + ARG2_BITS))
-#define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
-#define GET_ARG2(data) (register_t)((data) & ARG2_MASK)
-
 int vm(instruction_t* program, int* data)
 {
 	if (!stack)
@@ -24,7 +20,7 @@ int vm(instruction_t* program, int* data)
 	while (true)
 	{
 		instruction_t current_i = *(instruction_t*)registers[R_IP];
-		opcode_t i = GET_INSTRUCTION(current_i);
+		opcode_t i = GET_OPCODE(current_i);
 		register_t arg1 = GET_ARG1(current_i);
 		register_t arg2 = GET_ARG2(current_i);
 		switch (i)
@@ -87,11 +83,14 @@ int vm(instruction_t* program, int* data)
 			break;
 
 		case I_CALL:
+		{
+			size_t call_arg = GET_CALL_ARG(current_i);
 			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
 			*(size_t*)registers[R_SP] = registers[R_IP];
 			registers[R_SP] += sizeof(size_t);
-			registers[R_IP] += registers[arg1] * sizeof(instruction_t);
+			registers[R_IP] += call_arg * sizeof(instruction_t);
 			break;
+		}
 
 		case I_RETURN:
 			Assert((size_t)registers[R_SP] > (size_t)stack);
@@ -114,9 +113,37 @@ dead:
 	return registers[R_1];
 }
 
+const char* print_register(register_t r)
+{
+	switch (r)
+	{
+	case R_NONE: return "R_NONE";
+	case R_IP: return "R_IP";
+	case R_SP: return "R_SP";
+	case R_BP: return "R_BP";
+	case R_FL: return "R_FL";
+	case R_1:  return "R_1";
+	case R_2:  return "R_2";
+	case R_3:  return "R_3";
+	case R_4:  return "R_4";
+	case R_5:  return "R_5";
+	case R_6:  return "R_6";
+	case R_7:  return "R_7";
+	case R_8:  return "R_8";
+	case R_9:  return "R_9";
+	case R_10: return "R_10";
+	case R_11: return "R_11";
+	case R_12: return "R_12";
+
+	default:
+		Unimplemented();
+		return "R_UNKNOWN";
+	}
+}
+
 void print_instruction(instruction_t print_i)
 {
-	opcode_t i = GET_INSTRUCTION(print_i);
+	opcode_t i = GET_OPCODE(print_i);
 	register_t arg1 = GET_ARG1(print_i);
 	register_t arg2 = GET_ARG2(print_i);
 
@@ -124,18 +151,18 @@ void print_instruction(instruction_t print_i)
 	{
 	case I_DIE:      printf("I_DIE\n"); break;
 	case I_JUMP:     printf("I_JUMP %d\n", arg1); break;
-	case I_MOVE:     printf("I_MOVE %d %d\n", arg1, arg2); break;
-	case I_LOAD:     printf("I_LOAD %d %d\n", arg1, arg2); break;
-	case I_DATA:     printf("I_DATA %d %d\n", arg1, arg2); break;
-	case I_DATALOAD: printf("I_DATALOAD %d %d\n", arg1, arg2); break;
-	case I_ADD:      printf("I_ADD %d %d\n", arg1, arg2); break;
-	case I_SUBTRACT: printf("I_SUBTRACT %d %d\n", arg1, arg2); break;
-	case I_MULTIPLY: printf("I_MULTIPLY %d %d\n", arg1, arg2); break;
-	case I_DIVIDE:   printf("I_DIVIDE %d %d\n", arg1, arg2); break;
-	case I_DUMP:     printf("I_DUMP %d\n", arg1); break;
-	case I_PUSH:     printf("I_PUSH %d\n", arg1); break;
-	case I_POP:      printf("I_POP %d\n", arg1); break;
-	case I_CALL:     printf("I_CALL %d\n", arg1); break;
+	case I_MOVE:     printf("I_MOVE %s %d\n", print_register(arg1), arg2); break;
+	case I_LOAD:     printf("I_LOAD %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_DATA:     printf("I_DATA %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_DATALOAD: printf("I_DATALOAD %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_ADD:      printf("I_ADD %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_SUBTRACT: printf("I_SUBTRACT %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_MULTIPLY: printf("I_MULTIPLY %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_DIVIDE:   printf("I_DIVIDE %s %s\n", print_register(arg1), print_register(arg2)); break;
+	case I_DUMP:     printf("I_DUMP %s\n", print_register(arg1)); break;
+	case I_PUSH:     printf("I_PUSH %s\n", print_register(arg1)); break;
+	case I_POP:      printf("I_POP %s\n", print_register(arg1)); break;
+	case I_CALL:     printf("I_CALL %d\n", GET_CALL_ARG(print_i)); break;
 	case I_RETURN:   printf("I_RETURN\n"); break;
 
 	default:

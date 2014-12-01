@@ -14,12 +14,13 @@ struct procedure_calls
 		UNUSED = 0,
 		USED = 1,
 	} status;
+	size_t procedure_list_index; // : program_data[procedure_list_index]
 };
 
 struct program_data
 {
 	// Add any stuff here, clear it in init()
-	vhash<procedure_calls> call_graph_procedures; // : procedure name -> call_graph
+	vhash<procedure_calls> call_graph_procedures; // : procedure identifier -> call_graph
 	std::vector<size_t> call_graph;               // : i -> ast node index
 
 	std::vector<size_t> procedure_list; // : i -> ast node index

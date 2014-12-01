@@ -1,1 +1,14 @@
-main := () { x:= 42; return x; }
+test := ()
+{
+	return 42;
+}
+
+test2 := ()
+{
+	return 24;
+}
+
+main := ()
+{
+	return test();
+}

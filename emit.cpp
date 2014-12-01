@@ -21,7 +21,7 @@ struct procedure_info
 {
 	struct symbol_relocations
 	{
-		size_t    position;  // : i -> bytecode index
+		size_t    position;  // : procedure_bytecode[position]
 		st_string procedure; // : i -> ast_st
 	};
 
@@ -329,8 +329,8 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 			break;
 
 		case I3_CALL:
+			pi->relocations[instruction->call_relocation].position = program->size();
 			program->push_back(INSTRUCTION(I_CALL, 0, 0));
-			Unimplemented(); // Have to update the relocation table
 			break;
 
 		case I3_RETURN:
@@ -428,14 +428,15 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<instruction_
 	vector<procedure_info> procedures; // indexed the same as pd->procedure_list
 	procedures.resize(pd->procedure_list.size());
 
-	size_t main_procedure_info = ~0;
+	size_t main_procedure_index = ~0; // index into pd->procedure_list
 
 	size_t total_procedures_size = 0;
 
+	// Emit each procedure independently
 	for (size_t i = 0; i < pd->procedure_list.size(); i++)
 	{
 		if (pd->procedure_list[i] == main_procedure)
-			main_procedure_info = i;
+			main_procedure_index = i;
 
 		const char* identifier = st_get(ast_st, ast[pd->procedure_list[i]].value);
 
@@ -452,41 +453,87 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<instruction_
 		total_procedures_size += procedures[i].bytecode.size();
 	}
 
-	Assert(main_procedure_info != ~0);
-	if (main_procedure_info == ~0)
+	Assert(main_procedure_index != ~0);
+	if (main_procedure_index == ~0)
 		return 0;
 
-	program->push_back(INSTRUCTION(I_MOVE, R_1, 1)); // We measure from the end of the call instruction, so we just skip the die.
-	program->push_back(INSTRUCTION(I_CALL, R_1, 0));
+	// This preamble just calls the main procedure
+	program->push_back(INSTRUCTION_CALL(1)); // We jump one instruction to skip the die.
 	program->push_back(INSTRUCTION(I_DIE, 0, 0));
 
-	size_t main_location = 3;
+	size_t main_location = 2;
 
 	Assert(program->size() == main_location);
-	Assert(main_location < (1<<3)); // This is all that can fit in an I_MOVE instruction. Otherwise use data.
 
 	program->resize(total_procedures_size + main_location);
 
 	size_t current_instruction = main_location;
 
-	{
-		auto& main_procedure_bytecode = procedures[main_procedure_info].bytecode;
+	// Make sure the main procedure is first, the preamble requires it
+	vector<size_t> procedure_order; // : n -> pd->procedure_list (and also procedures)
 
-		memcpy(&(*program)[current_instruction], &main_procedure_bytecode[0], sizeof(instruction_t) * main_procedure_bytecode.size());
-
-		current_instruction += main_procedure_bytecode.size();
-	}
+	procedure_order.push_back(main_procedure_index);
 
 	for (size_t i = 0; i < pd->procedure_list.size(); i++)
 	{
 		if (pd->procedure_list[i] == main_procedure)
 			continue;
 
-		auto& procedure_bytecode = procedures[pd->procedure_list[i]].bytecode;
+		if (pd->call_graph_procedures.get(st_get(ast_st, ast[pd->procedure_list[i]].value))->status == procedure_calls::UNUSED)
+			continue;
+
+		procedure_order.push_back(i);
+	}
+
+	Assert(procedure_order.size() <= pd->procedure_list.size());
+
+	vector<size_t> procedure_start_index; // : pd->procedure_list index -> program index
+	procedure_start_index.resize(pd->procedure_list.size());
+
+	// Output all procedures into the program
+	for (size_t i = 0; i < procedure_order.size(); i++)
+	{
+		auto& procedure_bytecode = procedures[procedure_order[i]].bytecode;
+
+		procedure_start_index[procedure_order[i]] = current_instruction;
 
 		memcpy(&(*program)[current_instruction], procedure_bytecode.data(), sizeof(instruction_t) * procedure_bytecode.size());
 
 		current_instruction += procedure_bytecode.size();
+	}
+
+	// Relocate all calls
+	for (size_t i = 0; i < procedure_order.size(); i++)
+	{
+		size_t procedure_index = procedure_order[i];
+
+		auto* procedure_info = &procedures[procedure_index];
+		size_t source_start_index = procedure_start_index[procedure_index];
+
+		for (size_t j = 0; j < procedure_info->relocations.size(); j++)
+		{
+			auto* relocation = &procedure_info->relocations[j];
+
+			const char* procedure_name = st_get(ast_st, relocation->procedure);
+			procedure_calls* procedure_call = pd->call_graph_procedures.get(procedure_name);
+			if (!procedure_call)
+				V_ERROR("Can't find procedure call.\n");
+
+			size_t target_start_index = procedure_start_index[procedure_call->procedure_list_index];
+
+			size_t instruction_index = source_start_index + relocation->position;
+			instruction_t* instruction = &(*program)[instruction_index];
+
+			Assert(GET_OPCODE(*instruction) == I_CALL);
+
+			size_t jump_source = instruction_index + 1;
+
+			size_t call_arg = target_start_index - jump_source;
+
+			Assert((call_arg&CALL_ARG_MASK) == call_arg);
+
+			*instruction = INSTRUCTION_CALL(call_arg);
+		}
 	}
 
 	return 1;

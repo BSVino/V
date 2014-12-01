@@ -128,6 +128,7 @@ int check_procedure(size_t procedure_id)
 	procedure_calls calls;
 	calls.first = pd.call_graph.size();
 	calls.status = procedure_calls::UNUSED;
+	calls.procedure_list_index = pd.procedure_list.size();
 	pd.call_graph_procedures.set(procedure_name, call_graph_index, call_graph_hash, calls);
 	pd.procedure_list.push_back(procedure_id);
 

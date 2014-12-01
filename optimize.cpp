@@ -99,7 +99,8 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 			break;
 
 		case I3_CALL:
-			Unimplemented();
+			(*timeline)[instruction.r_dest].write_instruction = i;
+			register_constants[instruction.r_dest].state = register_info::NOT_CONSTANT; // TODO: Analyze the function called to see if it might be constant.
 			break;
 
 		case I3_RETURN:
