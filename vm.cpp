@@ -76,14 +76,27 @@ int vm(int* program, int* data)
 			Unimplemented();
 			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
 			*(size_t*)registers[R_SP] = registers[arg1];
-			registers[R_SP] += sizeof(int);
+			registers[R_SP] += sizeof(size_t);
 			break;
 
 		case I_POP:
 			Unimplemented();
 			Assert((size_t)registers[R_SP] > (size_t)stack);
-			registers[R_SP] -= sizeof(int);
+			registers[R_SP] -= sizeof(size_t);
 			registers[arg1] = *(size_t*)registers[R_SP];
+			break;
+
+		case I_CALL:
+			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
+			*(size_t*)registers[R_SP] = registers[R_IP];
+			registers[R_SP] += sizeof(size_t);
+			registers[R_IP] += registers[arg1] * sizeof(int);
+			break;
+
+		case I_RETURN:
+			Assert((size_t)registers[R_SP] > (size_t)stack);
+			registers[R_SP] -= sizeof(size_t);
+			registers[R_IP] = *(size_t*)registers[R_SP];
 			break;
 
 		default:

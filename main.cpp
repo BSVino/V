@@ -12,7 +12,7 @@ using namespace std;
 
 void do_tests();
 
-#define V_TEST
+//#define V_TEST
 
 int main(int argc, char** args)
 {

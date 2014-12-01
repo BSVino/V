@@ -118,12 +118,13 @@ static int emit_expression(size_t expression_id, size_t* result_register, proced
 		pi->relocations.back().position = procedure_3ac.size();
 		pi->relocations.back().procedure = expression.value;
 
+		*result_register = emit_auto_register();
+
 		procedure_3ac.push_back(instruction_3ac());
 		procedure_3ac.back().flags = instruction_3ac::I3AC_NONE;
 		procedure_3ac.back().i = I3_CALL;
-		procedure_3ac.back().r_arg1 = pi->relocations.size()-1; // arg1 stores the relocation index.
-
-		*result_register = EMIT_RETURN_REGISTER_INDEX;
+		procedure_3ac.back().call_relocation = pi->relocations.size() - 1;
+		procedure_3ac.back().r_dest = *result_register;
 		break;
 
 	default:
@@ -166,13 +167,8 @@ static int emit_statement(size_t statement_id, procedure_info* pi)
 			return 0;
 
 		procedure_3ac.push_back(instruction_3ac());
-		procedure_3ac.back().i = I3_MOVE;
-		procedure_3ac.back().r_dest = EMIT_RETURN_REGISTER_INDEX;
+		procedure_3ac.back().i = I3_RETURN;
 		procedure_3ac.back().r_arg1 = expression_register;
-
-		procedure_3ac.push_back(instruction_3ac());
-		procedure_3ac.back().i = I3_JUMP;
-		procedure_3ac.back().r_arg1 = EMIT_JUMP_END_OF_PROCEDURE;
 		return 1;
 
 	case NODE_ASSIGN:
@@ -199,6 +195,72 @@ static int emit_statement(size_t statement_id, procedure_info* pi)
 	return emit_statement(statement.next_statement, pi);
 }
 
+static bool emit_uses_register_arguments(instruction_3ac_t i)
+{
+	switch (i)
+	{
+	case I3_DATA:
+		return false;
+	case I3_MOVE:
+	case I3_ADD:
+	case I3_SUBTRACT:
+	case I3_MULTIPLY:
+	case I3_DIVIDE:
+		return true;
+	case I3_CALL:
+		return false;
+	case I3_RETURN:
+		return true;
+
+	default:
+		Unimplemented();
+		return false;
+	}
+}
+
+static bool emit_uses_both_arguments(instruction_3ac_t i)
+{
+	switch (i)
+	{
+	case I3_DATA:
+	case I3_MOVE:
+		return false;
+	case I3_ADD:
+	case I3_SUBTRACT:
+	case I3_MULTIPLY:
+	case I3_DIVIDE:
+		return true;
+	case I3_CALL:
+	case I3_RETURN:
+		return false;
+
+	default:
+		Unimplemented();
+		return false;
+	}
+}
+
+static bool emit_writes_dest(instruction_3ac_t i)
+{
+	switch (i)
+	{
+	case I3_DATA:
+	case I3_MOVE:
+	case I3_ADD:
+	case I3_SUBTRACT:
+	case I3_MULTIPLY:
+	case I3_DIVIDE:
+	case I3_CALL:
+		return true;
+	case I3_RETURN:
+		return false;
+
+	default:
+		Unimplemented();
+		return false;
+	}
+}
+
 static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 {
 	vector<size_t> register_map;
@@ -210,26 +272,24 @@ static void emit_convert_to_ssa(vector<instruction_3ac>& input)
 
 	for (size_t i = 0; i < input.size(); i++)
 	{
-		size_t unique_register = i + 1;
+		size_t unique_register = i;
 
 		auto& instruction = input[i];
 
-		// This is okay because the emit code reserves the 0 register
-		// until just before a return, it's never used otherwise.
-		if (instruction.r_dest == EMIT_RETURN_REGISTER_INDEX)
-			unique_register = EMIT_RETURN_REGISTER_INDEX;
+		if (emit_writes_dest(instruction.i))
+		{
+			register_map[instruction.r_dest] = unique_register;
 
-		register_map[instruction.r_dest] = unique_register;
+			instruction.r_dest = unique_register;
+		}
 
-		instruction.r_dest = unique_register;
-
-		if (instruction.i != I3_JUMP && instruction.i != I3_DATA && instruction.i != I3_CALL)
+		if (emit_uses_register_arguments(instruction.i))
 		{
 			// These instructions use registers as their arguments. Replace them with the new one.
 			Assert(register_map[instruction.r_arg1] != ~0);
 			instruction.r_arg1 = register_map[instruction.r_arg1];
 
-			if (instruction.i != I3_MOVE)
+			if (emit_uses_both_arguments(instruction.i))
 				instruction.r_arg2 = register_map[instruction.r_arg2];
 		}
 	}
@@ -268,11 +328,13 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 			program->push_back(INSTRUCTION(I_MOVE, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg1]));
 			break;
 
-		case I3_JUMP:
-			if (instruction->r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
-				program->push_back(INSTRUCTION(I_DIE, 0, 0));
-			else
-				Unimplemented();
+		case I3_CALL:
+			program->push_back(INSTRUCTION(I_CALL, 0, 0));
+			Unimplemented(); // Have to update the relocation table
+			break;
+
+		case I3_RETURN:
+			program->push_back(INSTRUCTION(I_RETURN, 0, 0));
 			break;
 
 		default:
@@ -341,8 +403,6 @@ static int emit_procedure(size_t procedure_id, std::vector<int>* program, std::v
 	v2r.clear();
 	r2v.clear();
 	next_const = 0;
-	size_t return_register = emit_find_register(EMIT_RETURN_REGISTER); // Reserve the first value for the return address
-	Assert(return_register == EMIT_RETURN_REGISTER_INDEX);
 
 	if (!emit_statement(procedure.next_statement, pi))
 		return 0;
@@ -370,6 +430,8 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* progra
 
 	size_t main_procedure_info = ~0;
 
+	size_t total_procedures_size = 0;
+
 	for (size_t i = 0; i < pd->procedure_list.size(); i++)
 	{
 		if (pd->procedure_list[i] == main_procedure)
@@ -383,15 +445,46 @@ int emit_begin(size_t main_procedure, program_data* pd, std::vector<int>* progra
 
 		if (!emit_procedure(pd->procedure_list[i], &procedures[i].bytecode, data, &procedures[i]))
 			return 0;
+
+		total_procedures_size += procedures[i].bytecode.size();
 	}
 
 	Assert(main_procedure_info != ~0);
 	if (main_procedure_info == ~0)
 		return 0;
 
-	*program = procedures[main_procedure_info].bytecode;
-
+	program->push_back(INSTRUCTION(I_MOVE, R_1, 1)); // We measure from the end of the call instruction, so we just skip the die.
+	program->push_back(INSTRUCTION(I_CALL, R_1, 0));
 	program->push_back(INSTRUCTION(I_DIE, 0, 0));
+
+	size_t main_location = 3;
+
+	Assert(program->size() == main_location);
+	Assert(main_location < (1<<3)); // This is all that can fit in an I_MOVE instruction. Otherwise use data.
+
+	program->resize(total_procedures_size + main_location);
+
+	size_t current_instruction = main_location;
+
+	{
+		auto& main_procedure_bytecode = procedures[main_procedure_info].bytecode;
+
+		memcpy(&(*program)[current_instruction], &main_procedure_bytecode[0], sizeof(int) * main_procedure_bytecode.size());
+
+		current_instruction += main_procedure_bytecode.size();
+	}
+
+	for (size_t i = 0; i < pd->procedure_list.size(); i++)
+	{
+		if (pd->procedure_list[i] == main_procedure)
+			continue;
+
+		auto& procedure_bytecode = procedures[pd->procedure_list[i]].bytecode;
+
+		memcpy(&(*program)[current_instruction], procedure_bytecode.data(), sizeof(int) * procedure_bytecode.size());
+
+		current_instruction += procedure_bytecode.size();
+	}
 
 	return 1;
 }

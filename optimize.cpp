@@ -43,17 +43,6 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 
 		switch (instruction.i)
 		{
-		case I3_JUMP:
-			if (instruction.r_arg1 == EMIT_JUMP_END_OF_PROCEDURE)
-			{
-				instruction_reads[i * 2] = EMIT_RETURN_REGISTER_INDEX;
-				(*timeline)[EMIT_RETURN_REGISTER_INDEX].last_read = i;
-				instructions_used.push_back(i);
-			}
-			else
-				Unimplemented();
-			break;
-
 		case I3_DATA:
 			(*timeline)[instruction.r_dest].write_instruction = i;
 			register_constants[instruction.r_dest].value = instruction.r_arg1;
@@ -111,6 +100,12 @@ void optimize_copy_propagation(vector<instruction_3ac>* input, vector<register_t
 
 		case I3_CALL:
 			Unimplemented();
+			break;
+
+		case I3_RETURN:
+			instruction_reads[i * 2] = instruction.r_arg1;
+			(*timeline)[instruction.r_arg1].last_read = i;
+			instructions_used.push_back(i);
 			break;
 
 		default:

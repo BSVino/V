@@ -23,8 +23,10 @@ typedef enum {
 	I_MULTIPLY, // arg1 <- arg1 * arg2
 	I_DIVIDE,   // arg1 <- arg1 / arg2
 	I_DUMP,     // Dump register arg1
-	I_PUSH,     // *R_SP = arg1, R_SP++
-	I_POP,      // R_SP--, arg1 = *R_SP
+	I_PUSH,     // *R_SP <- arg1; R_SP++
+	I_POP,      // R_SP--; arg1 <- *R_SP
+	I_CALL,     // push R_IP; R_IP <- arg1
+	I_RETURN,   // pop R_IP
 } instruction_t;
 
 typedef enum {
