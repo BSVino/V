@@ -42,10 +42,12 @@ int scope_push(size_t identifier_ast_index)
 
 size_t scope_find(const char* id_name)
 {
-	for (int i = (int)scope_identifiers.size()-1; i >= 0; i--)
+	int identifiers_size = (int)scope_identifiers.size() - 1;
+	for (int i = identifiers_size; i >= 0; i--)
 	{
-		if (strcmp(st_get(ast_st, ast[scope_identifiers[i]].value), id_name) == 0)
-			return i;
+		size_t ast_index = scope_identifiers[i];
+		if (strcmp(st_get(ast_st, ast[ast_index].value), id_name) == 0)
+			return ast_index;
 	}
 
 	return ~0;
@@ -229,9 +231,8 @@ int analyze_call_graph()
 
 		auto* call = pd.call_graph_procedures.get(procedure_index);
 		call->status = procedure_calls::USED;
-
 		for (size_t i = call->first; i < call->first + call->length; i++)
-			stack.push_back(st_get(ast_st, ast[i].value));
+			stack.push_back(st_get(ast_st, ast[pd.call_graph[i]].value));
 	}
 
 	return 1;

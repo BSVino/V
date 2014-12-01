@@ -10,5 +10,5 @@ test2 := ()
 
 main := ()
 {
-	return test();
+	return test() + test2();
 }

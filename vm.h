@@ -24,6 +24,7 @@ typedef enum {
 	I_DIE = 0,  // End the program
 	I_JUMP,     // R_IP += arg1 -- arg1 a constant
 	I_MOVE,     // arg1 <- arg2 -- arg1 a register, arg2 a constant
+	I_COPY,     // arg1 <- arg2 -- registers
 	I_LOAD,     // arg1 <- *arg2
 	I_DATA,     // arg1 <- &data[arg2]
 	I_DATALOAD, // arg1 <- data[arg2]

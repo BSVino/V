@@ -328,12 +328,36 @@ static void emit_convert_to_bytecode(vector<instruction_3ac>* input, vector<size
 			program->push_back(INSTRUCTION(I_MOVE, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg1]));
 			break;
 
+		case I3_ADD:
+			Assert((*variable_registers)[instruction->r_dest] != ~0);
+			Assert((*variable_registers)[instruction->r_arg1] != ~0);
+			Assert((*variable_registers)[instruction->r_arg2] != ~0);
+			// TODO: Optimize this move
+			program->push_back(INSTRUCTION(I_COPY, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg1]));
+			program->push_back(INSTRUCTION(I_ADD, R_1 + (*variable_registers)[instruction->r_dest], R_1 + (*variable_registers)[instruction->r_arg2]));
+			break;
+
 		case I3_CALL:
-			pi->relocations[instruction->call_relocation].position = program->size();
-			program->push_back(INSTRUCTION(I_CALL, 0, 0));
+			Assert((*variable_registers)[instruction->r_dest] != ~0);
+
+			if ((*variable_registers)[instruction->r_dest] == 0)
+			{
+				program->push_back(INSTRUCTION(I_CALL, 0, 0));
+			}
+			else
+			{
+				// TODO: Optimize this push/pop nonsense
+				program->push_back(INSTRUCTION(I_PUSH, R_1, 0));
+				pi->relocations[instruction->call_relocation].position = program->size();
+				program->push_back(INSTRUCTION(I_CALL, 0, 0));
+				program->push_back(INSTRUCTION(I_COPY, R_1 + (*variable_registers)[instruction->r_dest], R_1));
+				program->push_back(INSTRUCTION(I_POP, R_1, 0));
+			}
 			break;
 
 		case I3_RETURN:
+			Assert((*variable_registers)[instruction->r_arg1] != ~0);
+			program->push_back(INSTRUCTION(I_COPY, R_1, R_1 + (*variable_registers)[instruction->r_arg1]));
 			program->push_back(INSTRUCTION(I_RETURN, 0, 0));
 			break;
 
@@ -373,13 +397,12 @@ static void emit_allocate_registers(size_t num_target_registers, vector<size_t>*
 			if ((*variable_registers)[j] == ~0)
 				continue;
 
-			Unimplemented();
 			// If 'other' has already been allocated a register, check if we share a live time with it
 			size_t last_write = std::max(variable.write_instruction, other.write_instruction);
 			size_t first_read = std::min(variable.last_read, other.last_read);
 
 			if (last_write <= first_read)
-				possible_registers &= ~j;
+				possible_registers &= ~(1<<j);
 		}
 
 		for (size_t j = 0; j < sizeof(size_t)*8; j++)

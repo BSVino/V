@@ -36,6 +36,10 @@ int vm(instruction_t* program, int* data)
 			registers[arg1] = (char)(arg2 << 4) >> 4; // Abuse signed shifting to propogate negatives
 			break;
 
+		case I_COPY:
+			registers[arg1] = registers[arg2];
+			break;
+
 		case I_LOAD:
 			registers[arg1] = *(int*)registers[arg2];
 			break;
@@ -69,14 +73,12 @@ int vm(instruction_t* program, int* data)
 			break;
 
 		case I_PUSH:
-			Unimplemented();
 			Assert((size_t)registers[R_SP] < (size_t)stack + stack_size - 1);
 			*(size_t*)registers[R_SP] = registers[arg1];
 			registers[R_SP] += sizeof(size_t);
 			break;
 
 		case I_POP:
-			Unimplemented();
 			Assert((size_t)registers[R_SP] > (size_t)stack);
 			registers[R_SP] -= sizeof(size_t);
 			registers[arg1] = *(size_t*)registers[R_SP];
@@ -152,6 +154,7 @@ void print_instruction(instruction_t print_i)
 	case I_DIE:      printf("I_DIE\n"); break;
 	case I_JUMP:     printf("I_JUMP %d\n", arg1); break;
 	case I_MOVE:     printf("I_MOVE %s %d\n", print_register(arg1), arg2); break;
+	case I_COPY:     printf("I_COPY %s %s\n", print_register(arg1), print_register(arg2)); break;
 	case I_LOAD:     printf("I_LOAD %s %s\n", print_register(arg1), print_register(arg2)); break;
 	case I_DATA:     printf("I_DATA %s %s\n", print_register(arg1), print_register(arg2)); break;
 	case I_DATALOAD: printf("I_DATALOAD %s %s\n", print_register(arg1), print_register(arg2)); break;
