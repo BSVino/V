@@ -14,8 +14,8 @@
 #define INSTRUCTION_CALL(arg) {(instruction_t)((I_CALL << (INSTRUCTION_BITS - OPCODE_BITS)) | (arg&CALL_ARG_MASK))}
 
 #define GET_OPCODE(data) (opcode_t)((data) >> (INSTRUCTION_BITS - OPCODE_BITS))
-#define GET_ARG1(data) (register_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
-#define GET_ARG2(data) (register_t)((data) & ARG2_MASK)
+#define GET_ARG1(data) (vregister_t)(((data) >> (ARG2_BITS)) & ARG1_MASK)
+#define GET_ARG2(data) (vregister_t)((data) & ARG2_MASK)
 #define GET_CALL_ARG(data) (size_t)((data) & CALL_ARG_MASK)
 
 #define REGISTERS 16
@@ -59,7 +59,7 @@ typedef enum {
 	R_10,
 	R_11,
 	R_12,
-} register_t;
+} vregister_t;
 
 int vm(instruction_t* program, int* data);
 

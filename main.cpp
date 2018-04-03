@@ -23,16 +23,19 @@ int main(int argc, char** args)
 	vector<instruction_t> program;
 	vector<int> data;
 
-	if (!compile_file(args[1], program, data))
+	if (!compile_file(args[1], program, data)) {
 		return -1;
+	}
 
 	printf("Data listing: \n");
-	for (size_t i = 0; i < data.size(); i++)
+	for (size_t i = 0; i < data.size(); i++) {
 		printf("%d\n", data[i]);
+	}
 
 	printf("\nProgram listing: \n");
-	for (size_t i = 0; i < program.size(); i++)
+	for (size_t i = 0; i < program.size(); i++) {
 		print_instruction(program[i]);
+	}
 	
 	printf("\n");
 

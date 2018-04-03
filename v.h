@@ -1,6 +1,13 @@
 #pragma once
 
-#define Assert(x) do {if (!(x)) __debugbreak(); } while (0)
+#ifdef _WIN32
+#define DebugBreak() __debugbreak()
+#else
+#include <csignal>
+#define DebugBreak() std::raise(SIGTRAP);
+#endif
+
+#define Assert(x) do {if (!(x)) DebugBreak(); } while (0)
 #define Unimplemented() Assert(false)
 
 #define V_ERROR(msg) do { printf(msg); return 0; } while (0);

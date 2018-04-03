@@ -41,7 +41,7 @@ static size_t emit_find_register(const char* variable)
 	else
 	{
 		size_t index = r2v.size();
-		v2r.set(variable, it, hash, index);
+		v2r.set(variable, it, hash, (unsigned short)index);
 		r2v.push_back(variable);
 		return index;
 	}
@@ -50,12 +50,12 @@ static size_t emit_find_register(const char* variable)
 static size_t emit_auto_register()
 {
 	static char str[100];
-	sprintf(str, EMIT_CONST_REGISTER "%d", next_const++);
+	sprintf(str, EMIT_CONST_REGISTER "%zu", next_const++);
 
 	Assert(!v2r.entry_exists(str));
 
 	size_t index = r2v.size();
-	v2r.set(str, index);
+	v2r.set(str, (unsigned short)index);
 	r2v.push_back(str);
 	return index;
 }

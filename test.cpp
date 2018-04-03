@@ -1,8 +1,7 @@
-#ifdef _WIN32
 #include <sys/timeb.h>
-#endif
 
 #include <map>
+#include <string>
 
 #include "v.h"
 #include "vhash.h"
@@ -12,16 +11,14 @@
 
 using namespace std;
 
-vector<instruction_t> program;
-vector<int> data;
+void test(const char* string, bool should_compile, int desired_result = 0) {
+	vector<instruction_t> program;
+	vector<int> data;
 
-void test(const char* string, bool should_compile, int desired_result = 0)
-{
 	size_t length = strlen(string);
 	int compiled = compile(string, length, program, data);
 
-	if (!should_compile)
-	{
+	if (!should_compile) {
 		Assert(!compiled);
 		return;
 	}
@@ -34,8 +31,7 @@ void test(const char* string, bool should_compile, int desired_result = 0)
 
 	if (!compiled)
 		printf("Compile failed.\n");
-	else if (result != desired_result)
-	{
+	else if (result != desired_result) {
 		printf("Program listing:\n\n");
 		for (size_t i = 0; i < program.size(); i++)
 			print_instruction(program[i]);
@@ -44,8 +40,7 @@ void test(const char* string, bool should_compile, int desired_result = 0)
 
 extern void test_vhash();
 
-void do_tests()
-{
+void do_tests() {
 	test("", false);
 	test("main ", false);
 	test("main := ", false);
@@ -77,13 +72,11 @@ void do_tests()
 	test_vhash();
 }
 
-void test_vhash()
-{
+void test_vhash() {
 	srand(0);
 
 	std::string key_names_s[100];
-	for (int i = 0; i < 100; i++)
-	{
+	for (int i = 0; i < 100; i++) {
 		char buf[100];
 		sprintf(buf, "keytest%d", i);
 		key_names_s[i] = buf;
@@ -93,15 +86,15 @@ void test_vhash()
 	ftime(&initial_time_millis);
 
 	std::map<size_t, unsigned short> test1;
-	for (int i = 0; i < 100000; i++)
-	{
+	for (int i = 0; i < 100000; i++) {
 		size_t key = rand() % 100;
 
-		auto& it = test1.find(key);
-		if (it == test1.end())
+		const auto& it = test1.find(key);
+		if (it == test1.end()) {
 			test1[key] = 42;
-		else
+		} else {
 			it->second++;
+		}
 	}
 
 	ftime(&final_time_millis);
@@ -118,8 +111,7 @@ void test_vhash()
 	srand(0);
 	ftime(&initial_time_millis);
 
-	for (int i = 0; i < 100000; i++)
-	{
+	for (int i = 0; i < 100000; i++) {
 		size_t key = rand() % 100;
 		const char* key_name = key_names[key];
 
@@ -136,8 +128,7 @@ void test_vhash()
 	lapsed_ms = (long)(final_time_millis.time - initial_time_millis.time) * 1000 + (final_time_millis.millitm - initial_time_millis.millitm);
 	//printf("Elapsed: %dms\n", lapsed_ms);
 
-	for (int i = 0; i < 100; i++)
-	{
+	for (int i = 0; i < 100; i++) {
 		bool found;
 		size_t index = test2.find(key_names[i], 0, &found);
 		if (found)

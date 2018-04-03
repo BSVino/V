@@ -18,81 +18,83 @@ vector<char> ast_st;
 size_t ast_main = ~0;
 vector<size_t> ast_globals;
 
-static int lex_strcmp(const char* s1, const char* s2, size_t n1, size_t n2)
-{
+static int lex_strcmp(const char* s1, const char* s2, size_t n1, size_t n2) {
 	return strncmp(s1, s2, min(n1, n2));
 }
 
-static token_t lex_next()
-{
-	if (p == p_end)
+static token_t lex_next() {
+	if (p == p_end) {
 		return token = TOKEN_EOF;
+	}
 
-	while (*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t' && p <= p_end)
+	while ((*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t') && p <= p_end) {
 		p++;
+	}
 
-	if (p == p_end)
+	if (p == p_end) {
 		return token = TOKEN_EOF;
+	}
 
 	token_string = p;
 
-	if (*p >= 'a' && *p <= 'z' || *p >= 'A' && *p <= 'Z')
+	if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z'))
 	{
 		token = TOKEN_IDENTIFIER;
-		while (*p >= 'a' && *p <= 'z' || *p >= 'A' && *p <= 'Z' || *p >= '0' && *p <= '9')
+		while ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9')) {
 			p++;
+		}
 
 		token_length = p - token_string;
 
-		if (lex_strcmp(token_string, "int", token_length, 3) == 0)
+		if (lex_strcmp(token_string, "int", token_length, 3) == 0) {
 			return token = TOKEN_INT;
-		else if (lex_strcmp(token_string, "return", token_length, 6) == 0)
+		}
+		else if (lex_strcmp(token_string, "return", token_length, 6) == 0) {
 			return token = TOKEN_RETURN;
+		}
 
 		return token;
-	}
-	else if (*p >= '0' && *p <= '9')
-	{
+	} else if (*p >= '0' && *p <= '9') {
 		token = TOKEN_NUMBER;
-		while (*p >= '0' && *p <= '9' || *p == '.')
+		while ((*p >= '0' && *p <= '9') || *p == '.') {
 			p++;
+		}
 
 		token_length = p - token_string;
 
 		return token;
-	}
-	else if (*p == ':' && *(p + 1) == '=')
+	} else if (*p == ':' && *(p + 1) == '=') {
 		return p += 2, token = TOKEN_DECLARE_ASSIGN;
-	else if (*p == ':')
+	} else if (*p == ':') {
 		return p++, token = TOKEN_DECLARE;
-	else if (*p == '=')
+	} else if (*p == '=') {
 		return p++, token = TOKEN_ASSIGN;
-	else if (*p == '(')
+	} else if (*p == '(') {
 		return p++, token = TOKEN_OPEN_PAREN;
-	else if (*p == ')')
+	} else if (*p == ')') {
 		return p++, token = TOKEN_CLOSE_PAREN;
-	else if (*p == '{')
+	} else if (*p == '{') {
 		return p++, token = TOKEN_OPEN_CURLY;
-	else if (*p == '}')
+	} else if (*p == '}') {
 		return p++, token = TOKEN_CLOSE_CURLY;
-	else if (*p == ',')
+	} else if (*p == ',') {
 		return p++, token = TOKEN_COMMA;
-	else if (*p == ';')
+	} else if (*p == ';') {
 		return p++, token = TOKEN_SEMICOLON;
-	else if (*p == '+')
+	} else if (*p == '+') {
 		return p++, token = TOKEN_PLUS;
-	else if (*p == '-')
+	} else if (*p == '-') {
 		return p++, token = TOKEN_MINUS;
-	else if (*p == '*')
+	} else if (*p == '*') {
 		return p++, token = TOKEN_TIMES;
-	else if (*p == '/')
+	} else if (*p == '/') {
 		return p++, token = TOKEN_DIVIDED;
+	}
 
 	return token = TOKEN_UNKNOWN;
 }
 
-static int parse_eat(token_t t)
-{
+static int parse_eat(token_t t) {
 	if (token != t)
 		return 0;
 
@@ -100,13 +102,11 @@ static int parse_eat(token_t t)
 	return 1;
 }
 
-static int parse_peek(token_t t)
-{
+static int parse_peek(token_t t) {
 	return token == t;
 }
 
-static token_t parse_peek2()
-{
+static token_t parse_peek2() {
 	const char* p_stash     = p;
 	const char* p_end_stash = p_end;
 
@@ -125,8 +125,7 @@ static token_t parse_peek2()
 	return r;
 }
 
-static int parse_type()
-{
+static int parse_type() {
 	if (!parse_peek(TOKEN_INT))
 		return 0;
 
@@ -142,20 +141,17 @@ static char parse_precendence_array[] = {
 	3, // TOKEN_ASSIGN
 };
 
-static int parse_precendence(token_t t)
-{
+static int parse_precendence(token_t t) {
 	return parse_precendence_array[t - TOKEN_PLUS];
 }
 
-static node_type_t parse_operator_node(token_t t)
-{
+static node_type_t parse_operator_node(token_t t) {
 	return (node_type_t)(t - TOKEN_PLUS + NODE_SUM);
 }
 
 // expression_terminals <- number | id [ "(" ")" ]
 // It is the caller's responsibility to set the parent of the node returned by expression_index.
-static int parse_expression_terminals(size_t* expression_index)
-{
+static int parse_expression_terminals(size_t* expression_index) {
 	if (parse_peek(TOKEN_NUMBER))
 	{
 		ast.push_back(ast_node());
@@ -172,8 +168,7 @@ static int parse_expression_terminals(size_t* expression_index)
 
 		PARSE_EAT(TOKEN_IDENTIFIER);
 
-		if (parse_peek(TOKEN_OPEN_PAREN))
-		{
+		if (parse_peek(TOKEN_OPEN_PAREN)) {
 			ast.push_back(ast_node());
 			ast.back().value = name;
 			ast.back().type = NODE_PROCEDURE_CALL;
@@ -196,12 +191,11 @@ static int parse_expression_terminals(size_t* expression_index)
 	return PARSE_ERROR;
 }
 
-extern int parse_expression(size_t expression_parent, size_t* expression_index);
+static int parse_expression(size_t expression_parent, size_t* expression_index);
 
 // expression_operand <- "(" expression ")" | expression_terminals
 // It is the caller's responsibility to set the parent of the node returned by expression_index.
-static int parse_expression_operand(size_t* expression_index)
-{
+static int parse_expression_operand(size_t* expression_index) {
 	/*if (parse_peek(TOKEN_MINUS))
 	{
 		PARSE_EAT(TOKEN_MINUS);
@@ -222,8 +216,7 @@ static int parse_expression_operand(size_t* expression_index)
 }
 
 // operator <- "=" | "+" | "-" | "*" | "/" | ...
-static int parse_peek_operator()
-{
+static int parse_peek_operator() {
 	if (parse_peek(TOKEN_ASSIGN) ||
 		parse_peek(TOKEN_PLUS) ||
 		parse_peek(TOKEN_TIMES) ||
@@ -235,8 +228,7 @@ static int parse_peek_operator()
 }
 
 // expression_precedence(p) <- operand { operator expression_precedence(op+1) }
-static int parse_expression_precedence(int precedence, size_t expression_parent, size_t* expression_index)
-{
+static int parse_expression_precedence(int precedence, size_t expression_parent, size_t* expression_index) {
 	size_t left_operand_index;
 	V_REQUIRE(parse_expression_operand(&left_operand_index), "expression");
 
@@ -277,14 +269,12 @@ static int parse_expression_precedence(int precedence, size_t expression_parent,
 }
 
 // expression <- expression_precedence(0)
-static int parse_expression(size_t expression_parent, size_t* expression_index)
-{
+static int parse_expression(size_t expression_parent, size_t* expression_index) {
 	return parse_expression_precedence(0, expression_parent, expression_index);
 }
 
 // declaration <- id ":" type ["=" expression] | id ":=" expression
-static int parse_declaration(size_t parent, size_t* index)
-{
+static int parse_declaration(size_t parent, size_t* index) {
 	if (!parse_peek(TOKEN_IDENTIFIER))
 		return PARSE_ERROR;
 
@@ -307,8 +297,7 @@ static int parse_declaration(size_t parent, size_t* index)
 		ast[*index].decl_data_type = token;
 		V_REQUIRE(parse_type(), "type");
 
-		if (parse_peek(TOKEN_ASSIGN))
-		{
+		if (parse_peek(TOKEN_ASSIGN)) {
 			PARSE_EAT(TOKEN_ASSIGN);
 			size_t assign_expression;
 			V_REQUIRE(parse_expression(*index, &assign_expression), "expression");
@@ -331,8 +320,7 @@ static int parse_declaration(size_t parent, size_t* index)
 }
 
 // return_statement <- 'return' expression
-static int parse_return_statement(size_t parent, size_t* index)
-{
+static int parse_return_statement(size_t parent, size_t* index) {
 	if (!parse_peek(TOKEN_RETURN))
 		return PARSE_ERROR;
 
@@ -354,12 +342,10 @@ static int parse_return_statement(size_t parent, size_t* index)
 }
 
 // statement <- declaration ";" | expression ";" | return_statement ";"
-static int parse_statement(size_t parent, size_t* index)
-{
+static int parse_statement(size_t parent, size_t* index) {
 	if (parse_peek(TOKEN_IDENTIFIER))
 	{
-		if (parse_declaration(parent, index))
-		{
+		if (parse_declaration(parent, index)) {
 			PARSE_EAT(TOKEN_SEMICOLON);
 			return PARSE_CONTINUE;
 		}
@@ -381,8 +367,7 @@ static int parse_statement(size_t parent, size_t* index)
 }
 
 // procedure_declaration <- "(" [declaration {, declaration}] ")" "{" {statement} "}"
-static int parse_procedure_declaration(st_string identifier)
-{
+static int parse_procedure_declaration(st_string identifier) {
 	size_t procedure_id = ast.size();
 
 	ast_globals.push_back(procedure_id);
@@ -394,14 +379,14 @@ static int parse_procedure_declaration(st_string identifier)
 	ast.back().proc_first_parameter = ~0;
 	ast.back().next_statement = ~0;
 
-	if (strcmp(st_get(ast_st, ast.back().value), "main") == 0)
+	if (strcmp(st_get(ast_st, ast.back().value), "main") == 0) {
 		ast_main = procedure_id;
+	}
 
 	PARSE_EAT(TOKEN_OPEN_PAREN);
 	{
 		size_t declaration_id;
-		if (parse_declaration(procedure_id, &declaration_id))
-		{
+		if (parse_declaration(procedure_id, &declaration_id)) {
 			ast[procedure_id].proc_first_parameter = declaration_id;
 			size_t last_parameter = declaration_id;
 
@@ -421,8 +406,7 @@ static int parse_procedure_declaration(st_string identifier)
 		size_t last_statement = procedure_id;
 		size_t statement_id;
 		int result;
-		while ((result = parse_statement(procedure_id, &statement_id)) == PARSE_CONTINUE)
-		{
+		while ((result = parse_statement(procedure_id, &statement_id)) == PARSE_CONTINUE) {
 			ast[last_statement].next_statement = statement_id;
 			last_statement = statement_id;
 		}
@@ -440,8 +424,7 @@ static int parse_procedure_declaration(st_string identifier)
 		| id ":=" procedure_declaration [";"]
 		| id ":" type "=" ? ";"          // Not done yet.
 */
-static int parse_global()
-{
+static int parse_global() {
 	if (parse_peek(TOKEN_SEMICOLON))
 	{
 		PARSE_EAT(TOKEN_SEMICOLON);
@@ -460,8 +443,7 @@ static int parse_global()
 	{
 		PARSE_EAT(TOKEN_DECLARE_ASSIGN);
 
-		if (parse_peek(TOKEN_OPEN_PAREN))
-		{
+		if (parse_peek(TOKEN_OPEN_PAREN)) {
 			V_REQUIRE(parse_procedure_declaration(identifier), "procedure");
 
 			if (parse_peek(TOKEN_SEMICOLON))
@@ -470,14 +452,14 @@ static int parse_global()
 			return PARSE_OK;
 		}
 	}
-	else
+	else {
 		V_ERROR("Invalid declaration\n");
+	}
 
 	return PARSE_OK;
 }
 
-int parse_begin(const char* file_contents, size_t file_size)
-{
+int parse_begin(const char* file_contents, size_t file_size) {
 	ast.clear();
 	ast_st.clear();
 	ast_globals.clear();

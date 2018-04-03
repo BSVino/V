@@ -9,22 +9,19 @@ static size_t registers[REGISTERS];
 static size_t stack_size = 1024 * 1024;
 static char* stack = NULL;
 
-int vm(instruction_t* program, int* data)
-{
+int vm(instruction_t* program, int* data) {
 	if (!stack)
 		stack = (char*)malloc(stack_size);
 
 	registers[R_IP] = (size_t)&program[0];
 	registers[R_SP] = (size_t)&stack[0];
 
-	while (true)
-	{
+	while (true) {
 		instruction_t current_i = *(instruction_t*)registers[R_IP];
 		opcode_t i = GET_OPCODE(current_i);
-		register_t arg1 = GET_ARG1(current_i);
-		register_t arg2 = GET_ARG2(current_i);
-		switch (i)
-		{
+		vregister_t arg1 = GET_ARG1(current_i);
+		vregister_t arg2 = GET_ARG2(current_i);
+		switch (i) {
 		case I_DIE:
 			goto dead;
 
@@ -69,7 +66,7 @@ int vm(instruction_t* program, int* data)
 			break;
 
 		case I_DUMP:
-			printf("Register %d = %d\n", arg1, registers[arg1]);
+			printf("Register %d = %zu\n", arg1, registers[arg1]);
 			break;
 
 		case I_PUSH:
@@ -110,15 +107,13 @@ int vm(instruction_t* program, int* data)
 
 dead:
 
-	printf("Program exited with result: %d\n", registers[R_1]);
+	printf("Program exited with result: %zu\n", registers[R_1]);
 
 	return registers[R_1];
 }
 
-const char* print_register(register_t r)
-{
-	switch (r)
-	{
+const char* print_register(register_t r) {
+	switch (r) {
 	case R_NONE: return "R_NONE";
 	case R_IP: return "R_IP";
 	case R_SP: return "R_SP";
@@ -143,14 +138,12 @@ const char* print_register(register_t r)
 	}
 }
 
-void print_instruction(instruction_t print_i)
-{
+void print_instruction(instruction_t print_i) {
 	opcode_t i = GET_OPCODE(print_i);
-	register_t arg1 = GET_ARG1(print_i);
-	register_t arg2 = GET_ARG2(print_i);
+	vregister_t arg1 = GET_ARG1(print_i);
+	vregister_t arg2 = GET_ARG2(print_i);
 
-	switch (i)
-	{
+	switch (i) {
 	case I_DIE:      printf("I_DIE\n"); break;
 	case I_JUMP:     printf("I_JUMP %d\n", arg1); break;
 	case I_MOVE:     printf("I_MOVE %s %d\n", print_register(arg1), arg2); break;
@@ -165,7 +158,7 @@ void print_instruction(instruction_t print_i)
 	case I_DUMP:     printf("I_DUMP %s\n", print_register(arg1)); break;
 	case I_PUSH:     printf("I_PUSH %s\n", print_register(arg1)); break;
 	case I_POP:      printf("I_POP %s\n", print_register(arg1)); break;
-	case I_CALL:     printf("I_CALL %d\n", GET_CALL_ARG(print_i)); break;
+	case I_CALL:     printf("I_CALL %zu\n", GET_CALL_ARG(print_i)); break;
 	case I_RETURN:   printf("I_RETURN\n"); break;
 
 	default:
