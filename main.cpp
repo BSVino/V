@@ -10,16 +10,7 @@ using namespace std;
 #include <map>
 #include "vhash.h"
 
-void do_tests();
-
-#define V_TEST
-
-int main(int argc, char** args)
-{
-#ifdef V_TEST
-	do_tests();
-#endif
-
+int main(int argc, char** args) {
 	vector<instruction_t> program;
 	vector<int> data;
 

@@ -16,13 +16,18 @@ endif ()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 
-add_executable(v
+add_library(common
 	compile.cpp
 	emit.cpp
-	main.cpp
 	optimize.cpp
 	parse.cpp
 	stringtable.cpp
 	test.cpp
 	vm.cpp
 )
+
+add_executable(v main.cpp)
+target_link_libraries(v common)
+
+add_executable(vtest test.cpp)
+target_link_libraries(vtest common)

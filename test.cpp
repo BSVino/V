@@ -40,7 +40,7 @@ void test(const char* string, bool should_compile, int desired_result = 0) {
 
 extern void test_vhash();
 
-void do_tests() {
+int main() {
 	test("", false);
 	test("main ", false);
 	test("main := ", false);
